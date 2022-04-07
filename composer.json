@@ -1,0 +1,8 @@
+{
+    "name": "puvox/library-wp",
+    "description": "",
+    "require": {
+        "php": ">=7.2",
+        "puvox/library": "@dev",
+    }
+}
