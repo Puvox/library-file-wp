@@ -22,7 +22,7 @@ namespace Puvox;
 
 
 if (!class_exists('\\Puvox\\wp_library')) {
-  class wp_library extends php_library
+  class library_wp extends library
   {
 	  
 	public function __construct()

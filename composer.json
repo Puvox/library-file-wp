@@ -4,5 +4,14 @@
     "require": {
         "php": ">=7.2",
         "puvox/library": "*"
-    }
+    },
+    "autoload": {
+        "files": ["library_wp.php"]
+    },
+	"repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/Puvox/library-file-wp"
+        },
+	]
 }
