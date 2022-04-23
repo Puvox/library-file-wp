@@ -6,7 +6,7 @@
  *		 ##########################################################################################
  *   
  *	     ### Example usage: ###
- *   		$helpers = new \Puvox\wp_library();
+ *   		$helpers = new \Puvox\library_wp();
  *	 		$helpers-> remove_admin_bar ();
  *	      		...-> disable_emojis ();
  *	      		...-> delete_transients_by_prefix ('something');
@@ -21,7 +21,7 @@
 namespace Puvox;
 
 
-if (!class_exists('\\Puvox\\wp_library')) {
+if (!class_exists('\\Puvox\\library_wp')) {
   class library_wp extends library
   {
 	  
@@ -2443,7 +2443,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	public $helpers;
 	public function __construct($arg1=[])
 	{ 
-		$this->helpers = new wp_library();
+		$this->helpers = new library_wp();
 		//$this->h = $this->helpers;
 		if (method_exists($this, 'after_construct')) $this->after_construct(); //for rebasing the plugin url
 		$this->helpers->init_module(['class'=>get_called_class()] + $arg1);
