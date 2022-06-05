@@ -3719,7 +3719,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	
 	<script>
 	function pro_field(targetEl){
-		var is_pro = <?php echo $this->unregistered_pro() ? "true" : "false";?>; 
+		var is_pro = false; <?php //echo $this->unregistered_pro() ? "true" : "false";?>; 
 		if(is_pro) {
 			targetEl.attr("data-pro-overlay","pro_overlay");
 		}
