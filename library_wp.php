@@ -909,11 +909,14 @@ if (!class_exists('\\Puvox\\library_wp')) {
 
 		if( $this->checkSubmission( $nonceKey, 'nonceactxwe3_'.$prefix) ) {
 			foreach($options_array as $key=>$block){
-				if    ( is_bool   ($block['value']) )   $res[$key] = isset($_POST[$prefix][$key]); 
-				elseif( is_double ($block['value']) )   $res[$key] = (double)($_POST[$prefix][$key]); 
-				elseif( is_integer($block['value']) )   $res[$key] = (int)($_POST[$prefix][$key]); 
-				elseif( is_string ($block['value']) )   $res[$key] = stripslashes(sanitize_textarea_field($_POST[$prefix][$key])); 
-				elseif( is_array  ($block['value']) )	$res[$key] = $this->array_map_recursive( 'stripslashes', $this->array_map_recursive( 'sanitize_textarea_field', $_POST[$prefix][$key] ) );
+				$val = $block['value'];
+				$type = $this->array_value ($block, 'type', '');
+				if ($type === 'html') continue;
+				if    ( is_bool   ($val) )   $res[$key] = isset($_POST[$prefix][$key]); 
+				elseif( is_double ($val) )   $res[$key] = (double)($_POST[$prefix][$key]); 
+				elseif( is_integer($val) )   $res[$key] = (int)($_POST[$prefix][$key]); 
+				elseif( is_string ($val) )   $res[$key] = stripslashes(sanitize_textarea_field($_POST[$prefix][$key])); 
+				elseif( is_array  ($val) )	$res[$key] = $this->array_map_recursive( 'stripslashes', $this->array_map_recursive( 'sanitize_textarea_field', $_POST[$prefix][$key] ) );
 			}
 		}
 		return $res;
