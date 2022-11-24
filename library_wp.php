@@ -842,7 +842,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		foreach($options_array as $key=>$block){
 			// if block is also array of groups
 			if(!array_key_exists('value',$block)){
-
+				throw new \Exception('options_default_table: "value" key doesnt exist in block');
 			}
 			else{
 				$line = $this->helper_optionsblock_TD($key,$block,$prefix,$currentvalues_array, $desc);
@@ -860,20 +860,23 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		$desc = !empty( $this->array_value($block,'description') ) ? $this->array_value($block,'description') : $key;
 		$type = !empty( $this->array_value($block,'type') )        ? $this->array_value($block,'type')        : $key;
 		$line = '';
+		$val = $block['value'];
 		$placeholder = $this->array_value($block,'placeholder', $this->array_value($block,'value','')); 
-		if    ( is_bool($block['value']) )
+		if    ( is_bool($val) )
 			$line .= '<input name="'.$prefix.'['.$key.']" value="1" type="checkbox" '. $this->checked_if_value($currentvalues_array,$key).' />';
-		elseif( is_double($block['value']) )
+		elseif( is_double($val) )
 			$line .= '<input name="'.$prefix.'['.$key.']" value="'. $this->array_value($currentvalues_array,$key) .'" placeholder="'.$placeholder.'" style="width:70px;" />';
-		elseif( is_integer($block['value']) )
+		elseif( is_integer($val) )
 			$line .= '<input name="'.$prefix.'['.$key.']" value="'. $this->array_value($currentvalues_array,$key) .'" placeholder="'.$placeholder.'" style="width:70px;" />';
-		elseif( is_string($block['value']) ){
+		elseif( is_string($val) ){
 			if($type=='textarea') 
-				$line .= '<textarea name="'.$prefix.'['.$key.']" placeholder="'.$placeholder.'" >'. $this->array_value($currentvalues_array,$key) .'</textarea>'; 
+				$line .= '<textarea name="'.$prefix.'['.$key.']" placeholder="'.$placeholder.'" >'. $this->array_value($currentvalues_array,$key) .'</textarea>';
+			else if($type=='html') 
+				$line .= $val; 
 			else                  
 				$line .= '<input name="'.$prefix.'['.$key.']" value="'. $this->array_value($currentvalues_array,$key) .'" placeholder="'.$placeholder.'" />'; 
 		}
-		elseif( is_array($block['value']) ) {
+		elseif( is_array($val) ) {
 			$arr = $this->array_value($currentvalues_array,$key);
 			$rand_id=$this->randomId('v');
 			if(!array_key_exists('disable_autoadd',$block)) $arr[$rand_id] = '';
@@ -893,7 +896,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 			$line .= '</div>';
 		}
 		else{  //default to textbox
-			$line .= '<input name="'.$prefix.'['.$key.']" value="'. $this->array_value($currentvalues_array,$key) .'" placeholder="'.$block['value'].'" />'; 
+			$line .= '<input name="'.$prefix.'['.$key.']" value="'. $this->array_value($currentvalues_array,$key) .'" placeholder="'.$val.'" />'; 
 		}
 		return $line;
 	  }
@@ -1537,9 +1540,9 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		return $wpdb->query($sql);
 	}
 
-	public function transient_exists ($transientName) {
+	public function transient_exists ($transientName, $site_wide = false) {
 		// get_option('_transient_timeout_' . $your_transient);  gets timestamp of expiration, but is heavier than below line
-		return $this->option_exists('_transient_timeout_'.$transientName);
+		return $this->option_exists('_transient_timeout_'.$transientName, $site_wide);
 	}
 
 
@@ -2443,7 +2446,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	{ 
 		$this->helpers = new library_wp();
 		//$this->h = $this->helpers;
-		// if (method_exists($this, 'after_construct')) $this->after_construct(); //for rebasing the plugin url
+		if (method_exists($this, 'after_construct')) $this->after_construct(); //for rebasing the plugin url
 		$this->helpers->init_module(['class'=>get_called_class()] + $arg1);
 		$this->plugin_inits();
 	}
@@ -2865,24 +2868,25 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	
     public function options_into_parent($prefix, $options_array)
     {
-	  $this->initial_options_arrays[$prefix] = $options_array; 
-	  $changed = false;
-      foreach ($options_array as $key => $value) {
-        if (!isset($this->opts['sub_'.$prefix][$key])) {
-          if (array_key_exists('value', $value)) {
-            $this->opts[$prefix][$key] = $value['value'];
-			$changed = true;
-          } elseif (is_array($value)) {
-            foreach ($value as $key2 => $value2) {
+		$this->initial_options_arrays[$prefix] = $options_array; 
+		$changed = false;
+		foreach ($options_array as $key => $value) {
+		  $subPrefx = 'sub_'.$prefix;
+		  if (!isset($this->opts[$subPrefx][$key])) {
+			if (array_key_exists('value', $value)) {
+			  $this->opts[$subPrefx][$key] = $value['value'];
 			  $changed = true;
-              $this->opts[$prefix][$key2] = $value2['value'];
-            }
-          }
-        }
-      }
-	  if ($changed){
-		$this->update_opts();
-	  }
+			} elseif (is_array($value)) {
+			  foreach ($value as $key2 => $value2) {
+				$changed = true;
+				$this->opts[$subPrefx][$key2] = $value2['value'];
+			  }
+			}
+		  }
+		}
+		if ($changed){
+		  $this->update_opts();
+		}
     }
 	public function getSubOption($subChildSlug, $keyName=null, $default =null){
 		return is_null($keyName) ? $this->opts['sub_'.$subChildSlug] : $this->array_value($this->opts['sub_'.$subChildSlug], $keyName, $default); 
@@ -3011,7 +3015,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 				<form action="" method="POST" style="background:pink; padding:5px 10px;">
 					<h2>Your notes</h2>
 					<textarea style="width:100%; height:200px;" name="mynote"><?php echo get_option($optname,'');?></textarea>
-					<?php  $this->nonceSubmit('save', '_wp_note_nonce2', 'note_nonce2_') ; ?>
+					<?php  $this->nonceSubmit('save only note', '_wp_note_nonce2', 'note_nonce2_') ; ?>
 				</form>
 			</div>
 			<?php
@@ -3574,195 +3578,195 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		}
 		?>
 
-	<style>
-		.myplugin { margin: 20px 20px 0 0; line-height:1.2;  max-width:100%; display:flex; flex-wrap:rap; justify-content:center; flex-direction:column; padding: 20px; border-radius: 100px; }
-		.myplugin * { position:relative;}
-		.myplugin code {font-weight:bold; padding: 3px 5px;  display: inline-block;}
-		.myplugin >h2 {text-align:center;}
-		.myplugin h1,
-		.myplugin h2,
-		.myplugin h3 {text-align:center; margin: 0.5em 1em 1em;}
-		.myplugin table tr { border-bottom: 1px solid #cacaca; }
-		.myplugin table td {min-width:50px;}
-		.myplugin .form-table  { border: 1px solid #cacaca; padding:2px;  }
-		.myplugin .form-table td { padding: 15px 5px;  }
-		.myplugin .form-table th { padding: 20px 10px 20px 10px; } 
-		.myplugin p.submit {text-align: center;}
-		.myplugin .optwindow { border: 1px solid #b5b5b56e;  padding: 10px; border-width: 0px 1px 1px 1px; border-radius: 0px 0px 30px 30px; }
-		zz.myplugin input[type="text"]{width:100%;}
-		.myplugin .additionals{ display:flex;  font-family: initial; font-size: 1.5em;   text-align:center; margin: 25px 5px 5px; padding: 5px; background: #efeab7;  padding: 5px 0 0 20px;  border-radius: 0% 20px 140px 90%; }
-		z.myplugin .additionals:before { content: ""; position: absolute; top: 5%; left: 5%; height: 90%; width: 90%; background: #a222ff61; border-radius: 60% 60% 770% 110px;opacity: 0.6; transform: rotatez(-2deg); }
-		.myplugin .additionals:after { content: ""; position: absolute; top: 5%; left: 5%; width: 90%; background: #6bd5ff45; border-radius: 10% 40% 20% 110px; opacity: 0.6; transform: rotatez(3deg); z-index: 0; height: 100px; }
-		.myplugin .additionals a{font-weight:bold;font-size:1.1em; color:blue;}
-		.myplugin .in_additional { z-index:3; width: 700px; background: #ffffff00; box-shadow: 0px 0px 20px #7d7474; border-radius: 30px; padding: 11px; margin: 0 auto; margin: 20px auto; }
-		z.myplugin .additionals li { list-style-type: circle; list-style-type: circle; float: left; margin: 5px 0 5px 40px;}
-		.myplugin .whiteback { background:white; border-bottom:1px solid white; }
-		.myplugin.version_pro .donations_block, .myplugin.version_not_pro .donations_block { display:none; }
-		.myplugin .donation_li a{  color: #d47b09; }
-		.myplugin .customNav {margin: 0 0 0 0;}
-		.myplugin .customNav .errors-logreset{ color: #903e4c; font-size: 0.7em; margin: 0.9em 0 0 0; font-style: italic; opacity:  0.6;  float:right;}
-		.myplugin .customNav .nav-tab{ border-radius: 60% 30% 5% 0px; }
-		.myplugin .customNav .nav-tab-active{ color: #43ceb5; pointer-events: none; }
-		.myplugin .freelancers {font-style: italic; font-family: arial; font-size: 0.9em; margin: 15px; padding: 10px; border-radius: 5px; opacity: 0.7; }
-		.myplugin .freelancers a{}
-		.myplugin .button { top: -4px; }
-		.myplugin .red-button { background: #ec5d5d;   zbackground:  #ffdfdf;}
-		.myplugin .pink-button { background: pink; }
-		.myplugin .green-button { background: #44d090; }
-		.myplugin .float-left { float:left; }
-		.myplugin .float-right { float:right; }
-		.myplugin .displaynone { display:none; }
-		.myplugin .clearboth { clear:both;  height: 20px;  }
-		.myplugin .noinput { border: none!important; box-shadow:none!important; width:auto!important; display:inline-block!important; font-weight:bold; }
-		.myplugin .translations_table { margin: 20px 0 0 30px; border-collapse: collapse;}
-		xxx.ui-widget-overlay { background: #000000; opacity: 0.8; filter: Alpha(Opacity=80); }
-		xxx.ui-dialog {z-index: 9222!important; }
-		.myplugin .alertnative_to_shortcodes {margin:50px 10px; box-shadow: 0px 0px 20px grey; padding: 40px; }
+		<style>
+			.myplugin { margin: 20px 20px 0 0; line-height:1.2;  max-width:100%; display:flex; flex-wrap:rap; justify-content:center; flex-direction:column; padding: 20px; border-radius: 100px; }
+			.myplugin * { position:relative;}
+			.myplugin code {font-weight:bold; padding: 3px 5px;  display: inline-block;}
+			.myplugin >h2 {text-align:center;}
+			.myplugin h1,
+			.myplugin h2,
+			.myplugin h3 {text-align:center; margin: 0.5em 1em 1em;}
+			.myplugin table tr { border-bottom: 1px solid #cacaca; }
+			.myplugin table td {min-width:50px;}
+			.myplugin .form-table  { border: 1px solid #cacaca; padding:2px;  }
+			.myplugin .form-table td { padding: 15px 5px;  }
+			.myplugin .form-table th { padding: 20px 10px 20px 10px; } 
+			.myplugin p.submit {text-align: center;}
+			.myplugin .optwindow { border: 1px solid #b5b5b56e;  padding: 10px; border-width: 0px 1px 1px 1px; border-radius: 0px 0px 30px 30px; }
+			zz.myplugin input[type="text"]{width:100%;}
+			.myplugin .additionals{ display:flex;  font-family: initial; font-size: 1.5em;   text-align:center; margin: 25px 5px 5px; padding: 5px; background: #efeab7;  padding: 5px 0 0 20px;  border-radius: 0% 20px 140px 90%; }
+			z.myplugin .additionals:before { content: ""; position: absolute; top: 5%; left: 5%; height: 90%; width: 90%; background: #a222ff61; border-radius: 60% 60% 770% 110px;opacity: 0.6; transform: rotatez(-2deg); }
+			.myplugin .additionals:after { content: ""; position: absolute; top: 5%; left: 5%; width: 90%; background: #6bd5ff45; border-radius: 10% 40% 20% 110px; opacity: 0.6; transform: rotatez(3deg); z-index: 0; height: 100px; }
+			.myplugin .additionals a{font-weight:bold;font-size:1.1em; color:blue;}
+			.myplugin .in_additional { z-index:3; width: 700px; background: #ffffff00; box-shadow: 0px 0px 20px #7d7474; border-radius: 30px; padding: 11px; margin: 0 auto; margin: 20px auto; }
+			z.myplugin .additionals li { list-style-type: circle; list-style-type: circle; float: left; margin: 5px 0 5px 40px;}
+			.myplugin .whiteback { background:white; border-bottom:1px solid white; }
+			.myplugin.version_pro .donations_block, .myplugin.version_not_pro .donations_block { display:none; }
+			.myplugin .donation_li a{  color: #d47b09; }
+			.myplugin .customNav {margin: 0 0 0 0;}
+			.myplugin .customNav .errors-logreset{ color: #903e4c; font-size: 0.7em; margin: 0.9em 0 0 0; font-style: italic; opacity:  0.6;  float:right;}
+			.myplugin .customNav .nav-tab{ border-radius: 60% 30% 5% 0px; }
+			.myplugin .customNav .nav-tab-active{ color: #43ceb5; pointer-events: none; }
+			.myplugin .freelancers {font-style: italic; font-family: arial; font-size: 0.9em; margin: 15px; padding: 10px; border-radius: 5px; opacity: 0.7; }
+			.myplugin .freelancers a{}
+			.myplugin .button { top: -4px; }
+			.myplugin .red-button { background: #ec5d5d;   zbackground:  #ffdfdf;}
+			.myplugin .pink-button { background: pink; }
+			.myplugin .green-button { background: #44d090; }
+			.myplugin .float-left { float:left; }
+			.myplugin .float-right { float:right; }
+			.myplugin .displaynone { display:none; }
+			.myplugin .clearboth { clear:both;  height: 20px;  }
+			.myplugin .noinput { border: none!important; box-shadow:none!important; width:auto!important; display:inline-block!important; font-weight:bold; }
+			.myplugin .translations_table { margin: 20px 0 0 30px; border-collapse: collapse;}
+			xxx.ui-widget-overlay { background: #000000; opacity: 0.8; filter: Alpha(Opacity=80); }
+			xxx.ui-dialog {z-index: 9222!important; }
+			.myplugin .alertnative_to_shortcodes {margin:50px 10px; box-shadow: 0px 0px 20px grey; padding: 40px; }
 
-		.myplugin .ui-sortable-handle.ui-sortable-helper{ cursor: move; }
-		.myplugin textarea.fullwidth1{ display:block; width:100%; height:100px; }
-		.myplugin textarea.fullwidth2{ display:block; width:100%; height:200px; }
-		.myplugin textarea.fullwidth3{ display:block; width:100%; height:300px; }
-		.myplugin textarea.fullwidth4{ display:block; width:100%; height:400px; }
-		.myplugin textarea.halfwidth1{ display:block; width:50%; height:100px; margin: 0 auto;}
-		.myplugin textarea.halfwidth2{ display:block; width:50%; height:200px; margin: 0 auto;}
-		.myplugin textarea.halfwidth3{ display:block; width:50%; height:300px; margin: 0 auto;}
-		.myplugin textarea.halfwidth4{ display:block; width:50%; height:400px; margin: 0 auto;}
+			.myplugin .ui-sortable-handle.ui-sortable-helper{ cursor: move; }
+			.myplugin textarea.fullwidth1{ display:block; width:100%; height:100px; }
+			.myplugin textarea.fullwidth2{ display:block; width:100%; height:200px; }
+			.myplugin textarea.fullwidth3{ display:block; width:100%; height:300px; }
+			.myplugin textarea.fullwidth4{ display:block; width:100%; height:400px; }
+			.myplugin textarea.halfwidth1{ display:block; width:50%; height:100px; margin: 0 auto;}
+			.myplugin textarea.halfwidth2{ display:block; width:50%; height:200px; margin: 0 auto;}
+			.myplugin textarea.halfwidth3{ display:block; width:50%; height:300px; margin: 0 auto;}
+			.myplugin textarea.halfwidth4{ display:block; width:50%; height:400px; margin: 0 auto;}
 
-		.myplugin .hook_example_block { margin: 10px 0; line-height: 1.4em; }
-		.myplugin a,.myplugin a.button { display: inline; }
-		.myplugin .disabled { pointer-events: none; }
-		.myplugin .nonclickable { pointer-events: none; }
-		.myplugin .hiddentransparent {position: relative; width: 1px; height: 1px; color: transparent; display: inline; overflow: hidden; }
+			.myplugin .hook_example_block { margin: 10px 0; line-height: 1.4em; }
+			.myplugin a,.myplugin a.button { display: inline; }
+			.myplugin .disabled { pointer-events: none; }
+			.myplugin .nonclickable { pointer-events: none; }
+			.myplugin .hiddentransparent {position: relative; width: 1px; height: 1px; color: transparent; display: inline; overflow: hidden; }
 
-		.myplugin .review_block{ float:right; }
-		.myplugin .review_block a{ float:right; font-size:20px; font-weight:bold; }
-		.myplugin .review_block .stars{ height:30px; }
-		.myplugin .review_block span.leaverating {position:absolute; z-index:4; margin:0 auto; text-align:center; width:auto; white-space:nowrap; top:15px; color:#000000de; font-size:0.8em; left:20px; text-shadow:0px 0px 25px black;}
-		.myplugin .review_block img.stars{ height:30px; vertical-align:middle; }
+			.myplugin .review_block{ float:right; }
+			.myplugin .review_block a{ float:right; font-size:20px; font-weight:bold; }
+			.myplugin .review_block .stars{ height:30px; }
+			.myplugin .review_block span.leaverating {position:absolute; z-index:4; margin:0 auto; text-align:center; width:auto; white-space:nowrap; top:15px; color:#000000de; font-size:0.8em; left:20px; text-shadow:0px 0px 25px black;}
+			.myplugin .review_block img.stars{ height:30px; vertical-align:middle; }
 
-		.myplugin .shortcode_atts{ color:#b900f3; }
-		.myplugin .shortcodes_maintitle { font-style:italic; }
-		.myplugin table .shortcode_tr_descr { font-weight:bold; color:black; }
-		.myplugin .site_author_block{ text-align:center; font-size:0.8em; }
-		.myplugin .site_author_block a{ text-decoration:none; color:black;}
-		.myplugin .shortcodes_block { box-shadow: 0px 0px 15px #00000066; padding: 10px 0 0 0; margin: 20px 0;}
-		.myplugin .shortcodes_block z.h3{ color:#f34500; text-align:center; }
+			.myplugin .shortcode_atts{ color:#b900f3; }
+			.myplugin .shortcodes_maintitle { font-style:italic; }
+			.myplugin table .shortcode_tr_descr { font-weight:bold; color:black; }
+			.myplugin .site_author_block{ text-align:center; font-size:0.8em; }
+			.myplugin .site_author_block a{ text-decoration:none; color:black;}
+			.myplugin .shortcodes_block { box-shadow: 0px 0px 15px #00000066; padding: 10px 0 0 0; margin: 20px 0;}
+			.myplugin .shortcodes_block z.h3{ color:#f34500; text-align:center; }
 
-		.myplugin .datachange-save-button{ display:none; }
-		.myplugin ._save_button{ display:none; }
-		.myplugin .numeric_input{ width:50px; font-weight:bold;}
-		.myplugin .form-table td { vertical-align: top; }
+			.myplugin .datachange-save-button{ display:none; }
+			.myplugin ._save_button{ display:none; }
+			.myplugin .numeric_input{ width:50px; font-weight:bold;}
+			.myplugin .form-table td { vertical-align: top; }
+			
+			.myplugin .centered {display: flex; justify-content: center; align-items: center; flex-direction: column; }
+			.myplugin .centered.horizontal { flex-direction: row; }
+			.myplugin .centered.vertical { flex-direction: column; }
+
+			.myplugin .centered{ text-align:center; }
+			.myplugin .flexrow   { display:flex; flex-direction:row; }
+			.myplugin .flexcolumn{ display:flex; flex-direction:column; }
+			.myplugin .separate_block{ margin:22px; padding:5px; box-shadow:0px 0px 3px black; }
+			.myplugin .centered-float { position: fixed; bottom: 0; margin: 0 auto; left: 0; right: 0; z-index: 333;}
+			
+			ZZZ_example_jquery_u_ {url: (https://github.com/jquery/jquery-ui/tree/master/themes/base); }
+			.ui-widget.ui-widget-content { border: 1px solid #c5c5c5; }
+			.ui-corner-all { border-radius: 3px; }
+			.ui-widget-header { border: 1px solid #dddddd; background: #e9e9e9; color: #333333; font-weight: bold; }
+			
+			.ui-dialog { padding: .2em; }
+			
+			.ui-tooltip {	padding: 8px;	position: absolute;	z-index: 9999;	max-width: 300px;}
+			body .ui-tooltip {	border-width: 2px; border:1px solid #e7e7e7; box-shadow:0px 0px 3px gray; }
+		</style>
+
+		<div class="clear"></div>
+		<?php if ($this->static_settings['show_rating_message'] || $this->static_settings['show_donation_footer'] ) { ?>
+		<div class="newBlock additionals">
 		
-		.myplugin .centered {display: flex; justify-content: center; align-items: center; flex-direction: column; }
-		.myplugin .centered.horizontal { flex-direction: row; }
-		.myplugin .centered.vertical { flex-direction: column; }
+			<?php if ( $this->static_settings['show_donation_footer'] ) { ?>
+			<div class="in_additional">
+				<h4></h4>
+				<h3><?php _e('More Actions');?></h3>
+				<ul class="donations_block">
+					<li class="donation_li">
+						<!-- <?php _e('If you found this plugin useful, any donation is welcomed');?> :  $<input id="donate_pt" type="number" class="numeric_input" value="4" /> <button onclick="tt_donate_trigger(event);"/><?php _e('Donate');?></button> -->
+						<?php _e('If you found this plugin useful, any amount of');?> <?php echo $this->paypalDonationButton();?> <?php _e(' is welcomed');?> 
+						<script>
+						function tt_donate_trigger(e)
+						{
+							e.preventDefault();
+							var url= '<?php echo $this->static_settings['donate_url'];?>'; //+ '/'+ document.getElementById('donate_pt').value
+							window.open(url,'_blank');
+						}
+						</script>
+						<!-- <a href="%s" class="button" target="_blank">donation</a> -->
+					</li>
+				</ul>
+				<ul>
+					<li>
+						<?php if (false) printf(__('You can check other useful plugins at: <a href="%s">Must have free plugins for everyone</a>'),  $this->static_settings['musthave_plugins'] ).'.';	?>
+					</li>
+				</ul>
+			</div>
+			<?php } ?>
 
-		.myplugin .centered{ text-align:center; }
-		.myplugin .flexrow   { display:flex; flex-direction:row; }
-		.myplugin .flexcolumn{ display:flex; flex-direction:column; }
-		.myplugin .separate_block{ margin:22px; padding:5px; box-shadow:0px 0px 3px black; }
-		.myplugin .centered-float { position: fixed; bottom: 0; margin: 0 auto; left: 0; right: 0; z-index: 333;}
-		
-		ZZZ_example_jquery_u_ {url: (https://github.com/jquery/jquery-ui/tree/master/themes/base); }
-		.ui-widget.ui-widget-content { border: 1px solid #c5c5c5; }
-		.ui-corner-all { border-radius: 3px; }
-		.ui-widget-header { border: 1px solid #dddddd; background: #e9e9e9; color: #333333; font-weight: bold; }
-		
-		.ui-dialog { padding: .2em; }
-		
-		.ui-tooltip {	padding: 8px;	position: absolute;	z-index: 9999;	max-width: 300px;}
-		body .ui-tooltip {	border-width: 2px; border:1px solid #e7e7e7; box-shadow:0px 0px 3px gray; }
-	</style>
 
-	<div class="clear"></div>
-	<?php if ($this->static_settings['show_rating_message'] || $this->static_settings['show_donation_footer'] ) { ?>
-	<div class="newBlock additionals">
-	
-		<?php if ( $this->static_settings['show_donation_footer'] ) { ?>
-		<div class="in_additional">
-			<h4></h4>
-			<h3><?php _e('More Actions');?></h3>
-			<ul class="donations_block">
-				<li class="donation_li">
-					<!-- <?php _e('If you found this plugin useful, any donation is welcomed');?> :  $<input id="donate_pt" type="number" class="numeric_input" value="4" /> <button onclick="tt_donate_trigger(event);"/><?php _e('Donate');?></button> -->
-					<?php _e('If you found this plugin useful, any amount of');?> <?php echo $this->paypalDonationButton();?> <?php _e(' is welcomed');?> 
-					<script>
-					function tt_donate_trigger(e)
-					{
-						e.preventDefault();
-						var url= '<?php echo $this->static_settings['donate_url'];?>'; //+ '/'+ document.getElementById('donate_pt').value
-						window.open(url,'_blank');
-					}
-					</script>
-					<!-- <a href="%s" class="button" target="_blank">donation</a> -->
-				</li>
-			</ul>
-			<ul>
-				<li>
-					<?php if (false) printf(__('You can check other useful plugins at: <a href="%s">Must have free plugins for everyone</a>'),  $this->static_settings['musthave_plugins'] ).'.';	?>
-				</li>
-			</ul>
+			<?php if($this->static_settings['show_rating_message']) { ?>
+			<div class="review_block">
+				<a class="review_leave" href="<?php echo $this->static_settings['wp_rate_url'];?>" target="_blank">
+					<span class="leaverating"><?php _e('Rate plugin');?></span>
+					<img class="stars" src="<?php echo $this->helpers->imageSvg("rating-transparent");?>" />
+				</a>
+			</div>
+			<?php } ?>
+			
 		</div>
 		<?php } ?>
 
-
-		<?php if($this->static_settings['show_rating_message']) { ?>
-		<div class="review_block">
-			<a class="review_leave" href="<?php echo $this->static_settings['wp_rate_url'];?>" target="_blank">
-				<span class="leaverating"><?php _e('Rate plugin');?></span>
-				<img class="stars" src="<?php echo $this->helpers->imageSvg("rating-transparent");?>" />
-			</a>
-		</div>
-		<?php } ?>
+		<div class="clear"></div>
+		<script> tt_ajax_action = '<?php echo $this->plugin_slug_u;?>_all';</script>
 		
-	</div>
-	<?php } ?>
-
-	<div class="clear"></div>
-	<script> tt_ajax_action = '<?php echo $this->plugin_slug_u;?>_all';</script>
-	
-	<script>
-	function pro_field(targetEl){
-		var is_pro = false; <?php //echo $this->unregistered_pro() ? "true" : "false";?>; 
-		if(is_pro) {
-			targetEl.attr("data-pro-overlay","pro_overlay");
-		}
-	}
-	</script> 
-
-	<?php 
-	// $this->purchase_pro_block();  
-	?>
-
-	
-	<!-- Show "SAVE" button after input change,  type="text" id="manual_pma_login_url" data-onchange-save="true"  data-onchange-hide=".type_manual" name=" -->
-	<div class="datachange-save-button">
-		<?php submit_button( false, 'button-primary _save_button', '', true,  $attrib=  ['id' => '_save_button'] ); ?> 
-
 		<script>
-		(function($){ 
-
-			// save button show/hide
-			var save_button=$('.myplugin #_save_button');
-			$('.myplugin [data-onchange-save]').on("change, input", function(e){
-				save_button.insertAfter( $(this) );
-				save_button.show();
-				save_button.css( { 'margin-left': "-"+(save_button.css("width")), 'position':'relative', 'top':'0px', 'left':save_button.css("width")  });
-				var target=$(this).attr("data-onchange-hide"); if(target && target.length) {   $( target ).css("visibility","hidden");   }
-			});
-
-			//noinput types
-			if($(".noinput").length) $(".noinput").attr('size', $(".noinput").val().length);
-		})(jQuery); 
+		function pro_field(targetEl){
+			var is_pro = false; <?php //echo $this->unregistered_pro() ? "true" : "false";?>; 
+			if(is_pro) {
+				targetEl.attr("data-pro-overlay","pro_overlay");
+			}
+		}
 		</script> 
-	</div>
-	
-	<?php $this->donations_trigger_popup(); ?>
-	<?php $this->notes_field(); ?>
 
-	<?php if ($external===true) echo '</div>'; ?>
-	<?php
+		<?php 
+		// $this->purchase_pro_block();  
+		?>
+
+		
+		<!-- Show "SAVE" button after input change,  type="text" id="manual_pma_login_url" data-onchange-save="true"  data-onchange-hide=".type_manual" name=" -->
+		<div class="datachange-save-button">
+			<?php submit_button( false, 'button-primary _save_button', '', true,  $attrib=  ['id' => '_save_button'] ); ?> 
+
+			<script>
+			(function($){ 
+
+				// save button show/hide
+				var save_button=$('.myplugin #_save_button');
+				$('.myplugin [data-onchange-save]').on("change, input", function(e){
+					save_button.insertAfter( $(this) );
+					save_button.show();
+					save_button.css( { 'margin-left': "-"+(save_button.css("width")), 'position':'relative', 'top':'0px', 'left':save_button.css("width")  });
+					var target=$(this).attr("data-onchange-hide"); if(target && target.length) {   $( target ).css("visibility","hidden");   }
+				});
+
+				//noinput types
+				if($(".noinput").length) $(".noinput").attr('size', $(".noinput").val().length);
+			})(jQuery); 
+			</script> 
+		</div>
+		
+		<?php $this->donations_trigger_popup(); ?>
+		<?php $this->notes_field(); ?>
+
+		<?php if ($external===true) echo '</div>'; ?>
+		<?php
 	}
 	 
 
