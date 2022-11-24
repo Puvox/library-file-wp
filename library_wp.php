@@ -1,17 +1,17 @@
 <?php
 /**
- *		 ##########################################################################################
- *		 ###################################   Our WP Library   ###################################
- *		 ########## Here we collect frequently used methods across our WP applications. ##########
- *		 ##########################################################################################
- *   
- *	     ### Example usage: ###
- *   		$helpers = new \Puvox\library_wp();
- *	 		$helpers-> remove_admin_bar ();
- *	      		...-> disable_emojis ();
- *	      		...-> delete_transients_by_prefix ('something');
- *	      		...-> unzip ('file.zip');
- *        		...-> etc...
+ *   ####################################################################################
+ *   ################################  Our PHP Library   ################################
+ *   ####### Here we collect frequently used methods across our PHP applications. #######
+ *   ####################################################################################
+ *
+ *   ### Example usage: ###
+ *         $helpers = new \Puvox\library_wp();
+ *         $helpers-> remove_admin_bar ();
+ *                 -> disable_emojis ();
+ *                 -> delete_transients_by_prefix ('something');
+ *                 -> unzip ('file.zip');
+ *                    ...
  * 
  * Note: This file also contains additional 'wp_plugin' class. example use: https://bit.ly/puvox_wp_plugin
 */
@@ -369,7 +369,8 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	//other mods: https://developer.wordpress.org/reference/functions/wp_tinymce_inline_scripts/
 	// =========================== TinyMce ================================ //
  
-
+	// set desired number of revisions
+	//add_filter( 'wp_revisions_to_keep', function($num,$post){return (defined("POSTS_REVISION_NUMBERS") ? POSTS_REVISION_NUMBERS : 3) ; }  , 10, 2 );
 
 	public function compress_php_header($isWP=false)
 	{
@@ -1530,20 +1531,17 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	}
 	
 	public function option_exists($name, $site_wide=false){
-		global $wpdb; 
-		$sql = $wpdb->prepare("SELECT * FROM %s WHERE option_name ='%s' LIMIT 1", ($site_wide ? $wpdb->base_prefix : $wpdb->prefix).'options', $name);
+		global $wpdb;
+		$tablename = ($site_wide ? $wpdb->base_prefix : $wpdb->prefix).'options';
+		$sql = $wpdb->prepare("SELECT * FROM " . $tablename . " WHERE option_name ='%s' LIMIT 1", $name);
 		return $wpdb->query($sql);
 	}
-	
-	public function transient_exists($name, $site_wide=false){
-		$your_transient = 'your_transient';
-		$data_timeout = get_option('_transient_timeout_' . $your_transient);
-		if ($data_timeout < time())
-			echo 'it is expired.';
-		else
-			echo 'there is a transient';
+
+	public function transient_exists ($transientName) {
+		// get_option('_transient_timeout_' . $your_transient);  gets timestamp of expiration, but is heavier than below line
+		return $this->option_exists('_transient_timeout_'.$transientName);
 	}
-	
+
 
 
 	// ################################
@@ -2432,9 +2430,9 @@ if (!class_exists('\\Puvox\\library_wp')) {
 #region WP_PLUGIN class
 if (! class_exists('\\Puvox\\wp_plugin')) {
 
-//============================================================================================
-//================================== Main base for WP plugin =================================
-//============================================================================================
+//==================================================================================
+//============================= Main base for WP plugin ============================
+//==================================================================================
 
   class wp_plugin
   {
@@ -2445,7 +2443,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	{ 
 		$this->helpers = new library_wp();
 		//$this->h = $this->helpers;
-		if (method_exists($this, 'after_construct')) $this->after_construct(); //for rebasing the plugin url
+		// if (method_exists($this, 'after_construct')) $this->after_construct(); //for rebasing the plugin url
 		$this->helpers->init_module(['class'=>get_called_class()] + $arg1);
 		$this->plugin_inits();
 	}
@@ -3027,7 +3025,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	}
 
 	public function reload_without_query($params=array(), $js_redir=true){
-		$url = remove_query_arg( array_merge($params, ['isactivation'] ) );
+		$url = self::remove_query_arg( array_merge($params, ['isactivation'] ) );
 		if ($js_redir=="js"){ $this->js_redirect($url); }
 		else { $this->php_redirect($url); }
 	}
@@ -3225,11 +3223,18 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		echo '<div class="nav-tab-wrapper customNav '. (false && empty($this->static_settings['display_tabs']) ? "displaynone" : "") .'">';
 		foreach($tabs_array as $each_tab){
 			$tab_TITLE = $each_tab=="Shortcodes" ? "Shortcodes & Api" : $each_tab;
-			echo '<a  href="'.add_query_arg('tab', sanitize_key($each_tab) ).'" class="nav-tab '. sanitize_key($each_tab).' '. ($this->active_tab == $each_tab ? 'nav-tab-active  whiteback' : ''). '">'. __( $tab_TITLE).'</a>';
+			echo '<a href="'. self::add_query_arg('tab', sanitize_key($each_tab) ).'" class="nav-tab '. sanitize_key($each_tab).' '. ($this->active_tab == $each_tab ? 'nav-tab-active  whiteback' : ''). '">'. __( $tab_TITLE).'</a>';
 		}
 		echo '</div>';
 	}
 	
+	public static function add_query_arg($param, $val){
+		return esc_url(add_query_arg($param, $val));
+	}
+	public static function remove_query_arg($param, $val = false){
+		return esc_url(remove_query_arg($param, $val));
+	}
+
 	public function checkNonce($str1="mng_nonce", $str2="nonce_mng_" ){
 		return !empty( $_POST[$str1] ) && check_admin_referer( $str2 . $this->slug, $str1);
 	}
@@ -3323,12 +3328,12 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 
 			if(isset($_GET[$this->slug.'-remove-pro']) ) {
 				delete_site_option($this->license_keyname());
-				$this->helpers->js_redirect(remove_query_arg($this->slug.'-remove-pro'));
+				$this->helpers->js_redirect(self::remove_query_arg($this->slug.'-remove-pro'));
 			}
 		}
 	}
 
-	public function settings_page_part($type, $menuId = 'first')
+	public function settings_page_part($type, $menuId)
 	{
  		if($type=="start")
 		{
