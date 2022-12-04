@@ -815,7 +815,8 @@ if (!class_exists('\\Puvox\\library_wp')) {
 			$holder_class       = $args['class'];
 			$prefix				= $args['prefix']; 
 			$initialOpts = $this->array_value ($args, 'options', $holder_class->initial_options_arrays[$prefix]);
-			$res = $this->options_default_parse( ['options'=>$initialOpts, 'prefix'=>$prefix, 'nonce'=>$args['nonce'] ] );
+			$updatedCallback = $this->array_value ($args, 'updatedCallback', null);
+			$res = $this->options_default_parse( ['options'=>$initialOpts, 'prefix'=>$prefix, 'nonce'=>$args['nonce'], 'updatedCallback'=>$updatedCallback] );
 			if (!empty($res)){
 				$holder_class->setSubOption($prefix, $res);
 			}
@@ -905,7 +906,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		$res = [];
 		$options_array      = $args['options'];
 		$prefix				= $args['prefix'];
-		$nonceKey			= $args['nonce'];
+		$nonceKey			= $args['nonce']; 
 
 		if( $this->checkSubmission( $nonceKey, 'nonceactxwe3_'.$prefix) ) {
 			foreach($options_array as $key=>$block){
@@ -918,6 +919,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 				elseif( is_string ($val) )   $res[$key] = stripslashes(sanitize_textarea_field($_POST[$prefix][$key])); 
 				elseif( is_array  ($val) )	$res[$key] = $this->array_map_recursive( 'stripslashes', $this->array_map_recursive( 'sanitize_textarea_field', $_POST[$prefix][$key] ) );
 			}
+			if (array_key_exists('updatedCallback',$args)) call_user_func($args['updatedCallback']);
 		}
 		return $res;
 	}
