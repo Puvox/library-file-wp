@@ -2689,6 +2689,23 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		return (array_key_exists("HTTP_REFERER", $_SERVER) && stripos($_SERVER["HTTP_REFERER"],'/wp-admin/network/') !==false);
 	}
 
+	// remove library file on uninstall
+	public function add_default_uninstall(){
+		return;
+		if( is_admin() && !$this->is_development)
+		{
+			$wp_uninstall_file = $this->baseDIR.'/uninstall.php';
+			if( !file_exists($wp_uninstall_file) )
+			{
+				$content='<'.'?php
+				// If uninstall not called from WordPress, then exit
+				if ( ! defined( "WP_UNINSTALL_PLUGIN" ) ) exit; 
+				';
+				@$this->file_put_contents($wp_uninstall_file, $content);
+			}
+		}
+	}
+
 	public function pluginvars(){
 		// https://goo.gl/Z3z8FW : Name, PluginURI, Version, Description, Author, AuthorURI, TextDomain, DomainPath, Network, Title, AuthorName
 		return get_plugin_data( $this->helpers->plugin_entryfile, $markup = true, $translate = false);    //dont $translate, otherwise you will get error of: https://core.trac.wordpress.org/ticket/43869
