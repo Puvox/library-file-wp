@@ -209,6 +209,23 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	}
 	
 
+	public function disable_php_in_wpcontent()
+	{
+		if (last_checkpoint('uploads_htaccess', 500000))
+		add_action('init', function() {
+			$uploads_dir = defined('UPLOADS') ? UPLOAD : get_option('upload_path');
+			$uploads_dir = !empty($uploads_dir) ?  $uploads_dir : WP_CONTENT_DIR.'/uploads';
+			$file=$uploads_dir.'/.htaccess';
+			if(!file_exists($file)) {
+				$this->file_put_contents($file, '<Files ~ "\.php">'."\r\n".
+					'Order allow,deny'."\r\n".
+					'Deny from all'."\r\n".
+					'</Files>'
+				);
+			}
+		});
+	}
+
 
 	// add personal notes page:
 	public function mynots222() {
@@ -994,7 +1011,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 
 	public function unzip($path, $where)
 	{ 
-		$this->mkdir_recursive($where);
+		$this->file->create_directory($where);
 		require_once(ABSPATH . 'wp-admin/includes/file.php');
 		\WP_Filesystem();
 		\unzip_file($path, $where);
@@ -1015,9 +1032,9 @@ if (!class_exists('\\Puvox\\library_wp')) {
 			{
 				if( !array_key_exists($uniqueTag, $this->temp_unziped_folders) || $this->temp_unziped_folders[$uniqueTag]==false )
 				{
-					$this->rmdir_recursive($each_dir);
+					$this->file->delete_directory($each_dir);
 					$this->usleep(500000);
-					//$this->mkdir_recursive($pathh);
+					//$this->create_directory($pathh);
 				}
 			}
 			elseif( !is_dir($each_dir) )
