@@ -1,9 +1,9 @@
 <?php
 /**
- *   ####################################################################################
- *   ################################  Our PHP Library   ################################
- *   ####### Here we collect frequently used methods across our PHP applications. #######
- *   ####################################################################################
+ *   ################################################################################
+ *   ##############################  Our PHP Library   ##############################
+ *   ##### Here we collect frequently used methods across our PHP applications. #####
+ *   ################################################################################
  *
  *   ### Example usage: ###
  *         $helpers = new \Puvox\library_wp();
@@ -55,16 +55,18 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		} 
 	}
 	
-	public function CurrentHomeIs($path){ return trailingslashit($path)==trailingslashit(str_replace( trailingslashit(network_site_url()), '', trailingslashit(home_url())) ); } //return in_array(home_url(), ["http://$site","https://$site"]) || home_url('', 'relative')==$site; } 
+	public function is_home_path($path){ 
+		return trailingslashit($path)==trailingslashit(str_replace( trailingslashit(network_site_url()), '', trailingslashit(home_url())) ); 
+	} //return in_array(home_url(), ["http://$site","https://$site"]) || home_url('', 'relative')==$site; } 
 
 	public function home_url(){ return trailingslashit(home_url());} 
-	public function blogSlug(){ 
+	public function blog_slug(){ 
 		$blogname =  str_replace(basename(get_site_url()),'', basename( get_site($GLOBALS['blog_id'])->path));
 		return ($blogname !=='' ? $blogname : str_replace('www','',$_SERVER['HTTP_HOST']));
 	} 
 	
 
-	public function loadScripsStyles()
+	public function load_scripts_styles()
 	{
 		add_action( 'admin_head', function (){ if ($this->property('admin_styles')) echo ' <style type="text/css">'.$this->admin_styles.'</style>'; } );
 
@@ -77,15 +79,15 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	{
 		if ($this->property('auth_expiration_hours'))	 	$this->init__cookieexpiration();
 		if ($this->property('navmenu_search_items'))		$this->init__quicksearch();
-		if ($this->property('extend_shortcodes')) 			$this->extendShortcodes();
+		if ($this->property('extend_shortcodes')) 			$this->extend_shortcodes();
 		if ($this->property('posts_per_page')) 				$this->init__postsperpage($this->posts_per_page); 
 		// This is not enabled, unless user explicitly enables it during tests!!! IT IS NOWHERE ENABLED, UNLESS YOU INSERT IN CODE YOURSELF. so, don't fear.
-		if ($this->property("enable_write_logs"))			$this->SaveLogs( $this->baseDIR  .'/___logs_' ); 
+		if ($this->property("enable_write_logs"))			$this->save_logs( $this->baseDIR  .'/___logs_' ); 
 		if ($this->property('disable_update'))				$this->init__disableupdate();
 	}
 	
 	//when is_admin or when page is unknown (for example, custom page or "wp-login.php" or etc... )
-	public function Is_Backend(){
+	public function is_backend(){
 		$includes=get_included_files();
 		$path	= str_replace( ['\\','/'], DIRECTORY_SEPARATOR, ABSPATH);
 		return (is_admin() || in_array($path.'wp-login.php', $includes) || in_array($path.'wp-register.php', $includes) );
@@ -121,11 +123,18 @@ if (!class_exists('\\Puvox\\library_wp')) {
 			$current_blog_details = !function_exists('get_blog_details') ? get_site($blog_id) : get_blog_details( ['blog_id' => $blog_id] );
 			$b_slug = basename($current_blog_details->path);
 			return $b_slug;
+			
+			// global $current_blog; 
+			// $blog_path = explode('/',$current_blog->path); 
+			// if(isset($blog_path[2])) {
+			// 	return $blog_path[2];
+			// }
+			//if(!get_blog_name()) { header("Location: http://www.mydomain.com/", true, 301); exit; } 
 		}
 		return false;
 	}
 
-	public function sqlResultsToArray($tableName, $first_key, $second_key=false, $data_key=false)
+	public function sql_results_to_array($tableName, $first_key, $second_key=false, $data_key=false)
 	{ 
 		$array=$this->object_to_array( $this->get_table_my($tableName) );
 
@@ -147,7 +156,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	}
 
 
-	public function get_locale__SANITIZED(){
+	public function get_locale_sanitized(){
 		return ( get_locale() ? "en" : preg_replace('/_(.*)/','',get_locale()) ); //i.e. 'en'
 		//$x=$GLOBALS['wpdb']->get_var("SELECT lng FROM ".$this->options." WHERE `lang` = '".$lang."'"); return !empty($x);
 	}
@@ -183,25 +192,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		} ); 
 	}
 
-	
-	
-	public function checkMyselfAgainstModification()
-	{
-		//if ($this->is_development) return;
-		$name = '_puvox_default_lib_last_revision';
-		$opt= $this->get_option_CHOSEN($name, 0 );
-		$days=7;
-		if( time() - $opt > $days* 86400 )
-		{
-			//https://plugins.trac.wordpress.org/browser/'.$this->slug.'/trunk/default_library_puvox.php
-			update_option_CHOSEN($name, time() );
-		}
-		if(time() - $opt < 0 ){
-			update_option_CHOSEN($name, 0 );
-		}
-	}
-
-	
 	public function enable_admin_debug($exit=false){
 		if (WP_DEBUG)
 			add_filter('wp_php_error_message', function($message, $error) use ($exit) { return $message. $this->var_dump($error['message']); if($exit) die();} , 10,2);
@@ -226,32 +216,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		});
 	}
 
-
-	// add personal notes page:
-	public function mynots222() {
-		add_action('admin_menu', function() { 
-			add_menu_page('myNOTES', 'myNOTES', 'read','mynotes-urllll', [$this, 'ntsFNC222'] ); } );
-	}
-	public function ntsFNC222() {
-		if (!$this->NonceCheck($_POST['nonce'], 'myact')) return;
-		
-		if (isset($_POST['nmtIDv'])) { update_option('myfuture_notes_contentt', sanitize_text_field($_POST['nmtIDv'])); }
-		$contn = get_option('myfuture_notes_contentt');
-					echo 
-		'<form style="margin:50px 0 0 0;" action="" method="POST">On this page you can save custom notes';
-			if (current_user_can('create_users')) { echo '<div style="color:red;font-style:italic;"></div>';}
-					echo
-			'<div class="mpmybook_textareaDIV"> 
-				<style>	#nmtIDv_div{width:100% !important; height:1000px !important;}</style>';
-				wp_editor($contn, 'nmtIDv', $settings = array(
-				'editor_class'=>'notesmyyCLASS',    'textarea_name'=>'mynots123', 'editor_height'=>'1000px', 'textarea_rows'=>'1000',
-				'tinymce'=>true ,'wpautop'=>false,	'media_buttons'=>true,	'teeny'=>false,	'quicktags'=>false,		'drag_drop_upload'=>true )); echo
-			'</div>
-			<br/><input style="position:fixed;left:45%;bottom:10px;background-color:#1FC81F;" type="submit" value="SAVE" />
-		</form>';
-	}
-
-	
 	public function my_site_variables__secret($var_name=false, $value=false){
 		$final= $this->SITE_VARIABLES = get_site_option('site_variables_my_secret',[]);
 		if ($var_name) {
@@ -363,23 +327,18 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		<?php
 		exit;
 	}
-	
-	// show toggled (2-lined) tinymce editor 
-	public function tinymceToggled(){
-		add_filter( 'tiny_mce_before_init', function($array){ $array[ 'wordpress_adv_hidden' ]=false; return $array; } );
-		add_filter( 'mce_buttons',	function ( $button_names ) { return array_diff( $button_names, ['wp_adv'] ); } ); 
-	}
-	public function tinymceAddMediaButton(){
+
+	public function tinymce_enable_media_button(){
 		add_filter( 'mce_buttons',	function ( $button_names ) { $button_names[]='wp_add_media';  return $button_names; } );
 	}
 				
-	public function tinymceRemoveButtons($buttons){
+	public function tinymce_remove_buttons($buttons){
 		//add_filter( 'mce_buttons',	function ( $button_names ) {  return array_diff( $button_names, $buttons ); } ); 
 		//'strikethrough','hr','forecolor','pastetext','removeformat','charmap','outdent','indent','undo','redo','wp_help'
 		//add_filter( 'mce_buttons_2',	function ( $button_names ) {  return array_diff( $button_names, $buttons ); } ); 
 	}
 			//if ($GLOBALS['current_screen']->post_type==$post_type) { 
-    public function remove_media_button()
+    public function tinymce_enable_remove_media_button()
     {
 		add_action('admin_head', function() { remove_action('media_buttons', 'media_buttons'); });
 	}
@@ -450,8 +409,8 @@ if (!class_exists('\\Puvox\\library_wp')) {
 
 
 	// increase filtering quick-menu-search results (this seems better than other a bit harder methods, like: https://goo.gl/BWMmDp )
-	public function init__quicksearch($amount=30) { $this->navmenu_search_items=$amount; add_action( 'pre_get_posts', [$this, 'myFilter_quicksearch'], 10, 2 );  }
-	public function myFilter_quicksearch( $q ) {
+	public function init__quicksearch($amount=30) { $this->navmenu_search_items=$amount; add_action( 'pre_get_posts', [$this, 'my_filter_quicksearch'], 10, 2 );  }
+	public function my_filter_quicksearch( $q ) {
 		// example of $q properties: https://goo.gl/SNeDwX
 		if(isset($_POST['action']) && $_POST['action']=="menu-quick-search" && isset($_POST['menu-settings-column-nonce'])){	
 			// other parameters for more refinement: https://goo.gl/m2NFCr
@@ -503,9 +462,9 @@ if (!class_exists('\\Puvox\\library_wp')) {
 
 	// remove category base: pastebin_com/raw/YpV0wp27
 	
-	public function referrerIsSameDomain()
+	public function referrer_is_external_domain()
 	{
-		return $this->startsWith(wp_get_referer(), home_url());
+		return $this->get_domain(wp_get_referer()) !== $this->get_domain(home_url());
 	}
 	
 	//add_action( 'after_setup_theme', 'theme_supportss' );  
@@ -582,7 +541,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		}
 	}
 	public function inprogress_flag_reset($flagname_final){
-		$flagname_final = !$this->startsWith($flagname_final, 'inprogress_') ? "inprogress_$flagname_final" : $flagname_final;
+		$flagname_final = !$this->starts_with($flagname_final, 'inprogress_') ? "inprogress_$flagname_final" : $flagname_final;
 		if( !empty($this->get_transient($flagname_final) ) ) {
 			if( ! $this->set_transient($flagname_final,0,0) ) {
 				if( ! $this->set_transient($flagname_final,0,0) ) {
@@ -650,10 +609,8 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		});
 	}
 
-
-
 	//if used earlier than INIT 
-	public function get_permalink_ADOPTED($post=false){
+	public function get_permalink_before_init($post=false){
 		global $wp_rewrite;	
 		if (empty($wp_rewrite)){
 			if(is_object($post))	 {$link=$post->guid; }
@@ -673,28 +630,17 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	}
 
 
-	public function redirect_to_homefolder($siteSlug= "geo")
+	public function redirect_to_homefolder($site_slug= "geo")
 	{
 		// redirect to /GEO
 		$redirect_lang = 1;
 		if ($redirect_lang)
 			if (!is_admin())
-				if( stripos($this->currentURL,"/$siteSlug/")===false && stripos($this->currentURL,'/wp-login')===false  && stripos($this->currentURL,'/wp-admin')===false   )
-					$this->php_redirect( str_replace($this->domain, $this->domain."/$siteSlug/",  $this->currentURL));
+				if( stripos($this->currentURL,"/$site_slug/")===false && stripos($this->currentURL,'/wp-login')===false  && stripos($this->currentURL,'/wp-admin')===false   )
+					$this->php_redirect( str_replace($this->domain, $this->domain."/$site_slug/",  $this->currentURL));
 	}
 
-	//not_founded_images_redirections (when on FTP, the file is not found, then automatically, the site is loaded.. so, in this case, use our function.
-	public function not_found_images_redirect() {
-		if (in_array( $this->get_url_parts($this->currentURL,'extension'), ['png','jpg','jpeg','gif','bmp','svg']))		{  
-			echo '<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg viewBox="0 85 80 120" xmlns="http://www.w3.org/2000/svg"><style></style><text x="0" y="100" class="small">Image error</text></svg>'; exit;
-		}
-	}
-
-	public function OutputImageFile($file=''){ 
-		if ( !in_array( $this->getExtension($file), ['jpg','jpeg','png','bmp','gif']) ) exit ('');
-		header("Content-type: image/png");  die( $this->file_get_contents($file)  ); 
-	}
-
+ 
 	public function get_parent_slugs_path($post){
 		$final_SLUGG = '';
 		if (!empty($post->post_parent)){
@@ -709,7 +655,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	
 	// https://stackoverflow.com/questions/18401236/custom-category-tree-in-wordpress
 	//foreach (get_terms($allTermSlugs, array('hide_empty'=>0, 'orderby'=>'id', 'parent'=>0)  ) as $category)  echo my_Categ_tree($category->taxonomy,$category->term_id);
-	public function my_Categ_tree($TermName='', $termID=null, $separator='', $parent_shown=true ){
+	public function my_categ_tree($TermName='', $termID=null, $separator='', $parent_shown=true ){
 		$args = 'hierarchical=1&taxonomy='.$TermName.'&hide_empty=0&orderby=id&parent=';
 				if ($parent_shown) {$term=get_term($termID , $TermName); $output=$separator.$term->name.'('.$term->term_id.')<br/>'; $parent_shown=false;}
 		$separator .= '-';	
@@ -734,7 +680,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		// $headers = array('Content-Type: text/html; charset=UTF-8')
 	}
 
-	public function recountCategories($tax_name='category')
+	public function recount_categories($tax_name='category')
 	{
 		$terms_ids = get_terms( ['taxonomy' => $tax_name, 'fields' => 'ids','hide_empty' => false]);
 		wp_update_term_count_now( $terms_ids, $tax_name);
@@ -775,19 +721,22 @@ if (!class_exists('\\Puvox\\library_wp')) {
 
 
 	// NONCES
-	public function defNonceAction($actionName=null){ return ($actionName!=null? $actionName :  "_nonceAction"."_".$this->slug); }
-	public function defNonceSlug($slugName=null){ return ($slugName!=null? $slugName :  "_wpnonce"."_".$this->slug); }
+	public function default_nonce_action($actionName=null){ return ($actionName!=null? $actionName :  "_nonceAction"."_".$this->slug); }
+	public function default_nonce_slug($slugName=null){ return ($slugName!=null? $slugName :  "_wpnonce"."_".$this->slug); }
 
-	public function checkSubmission($action=null, $slug=null)
+	public function check_form_submission($action=null, $slug=null)
 	{  
-		$action = $this->defNonceAction($action);
-		$slug   = $this->defNonceSlug($slug);
+		$action = $this->default_nonce_action($action);
+		$slug   = $this->default_nonce_slug($slug);
 		$result = isset($_POST[$slug]) && check_admin_referer($action, $slug);
 		return $result;
 	}
+	public function checkSubmission($action=null, $slug=null){
+		return $this->check_form_submission($action, $slug);
+	}
 	public function nonce($action=null, $slug=null, $echo=true)
 	{
-		$out = wp_nonce_field( $this->defNonceAction($action), $this->defNonceSlug($slug), true, false );
+		$out = wp_nonce_field( $this->default_nonce_action($action), $this->default_nonce_slug($slug), true, false );
 		if ($echo) echo $out; else return $out;
 	}
 	public function nonceSubmit($text=null, $action=null, $slug=null, $centeredFloat=false, $echo=true)
@@ -798,23 +747,20 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	public function submit_button($text=null, $action=null, $slug=null, $centeredFloat=false, $echo=false)
 	{
 		$out = '';
-		$out .= $this->nonce( $this->defNonceAction($action), $this->defNonceSlug($slug), false );
+		$out .= $this->nonce( $this->default_nonce_action($action), $this->default_nonce_slug($slug), false );
 		if ($centeredFloat) $out .= '<div class="centered-float submitbutton">';
 		$out .= get_submit_button( $text, $type='button-primary', $name='', $wrap=true, $other_attributes= ['id'=>'mainsubmit-button'] );
 		if ($centeredFloat) $out .=  '</div>';
 		if ($echo) echo $out; else return $out;
 	}
 	// old
-	public function NonceCheck($value, $action_name){ 
+	public function nonce_check($value, $action_name){ 
 		if ( !isset($value) || !wp_verify_nonce($value, $action_name) ) { die("not allowed. error_5151, Refresh the page");}
 	}	
-	public function NonceCheckk($name='nonce_input_name', $action_name='blabla')  {
+	public function nonce_check2($name='nonce_input_name', $action_name='blabla')  {
 		return ( wp_verify_nonce($_POST[$name], $action_name)  ?  true : die("not allowed, refresh page!") );
 	}
-	public function NonceFieldd($name='nonce_input_name', $action_name='blabla')  { return '<input type="hidden" name="'.$name.'" value="'.wp_create_nonce($action_name).'" />';}
-
-
-
+	public function nonce_field($name='nonce_input_name', $action_name='blabla')  { return '<input type="hidden" name="'.$name.'" value="'.wp_create_nonce($action_name).'" />';}
 
 
 	#region ######### OPTIONS TABLES #########
@@ -835,9 +781,9 @@ if (!class_exists('\\Puvox\\library_wp')) {
 			$updatedCallback = $this->array_value ($args, 'updatedCallback', null);
 			$res = $this->options_default_parse( ['options'=>$initialOpts, 'prefix'=>$prefix, 'nonce'=>$args['nonce'], 'updatedCallback'=>$updatedCallback] );
 			if (!empty($res)){
-				$holder_class->setSubOption($prefix, $res);
+				$holder_class->set_sub_option($prefix, $res);
 			}
-			echo $this->options_default_table( ['options'=>$initialOpts, 'currentvalues'=>$holder_class->getSubOption($prefix), 'prefix'=>$prefix, 'nonce'=>$args['nonce'], 'echo'=>$this->array_value($args,'echo',  false), 'echo'=>$this->array_value($args,'in_form', true) ]  );
+			echo $this->options_default_table( ['options'=>$initialOpts, 'currentvalues'=>$holder_class->get_sub_option($prefix), 'prefix'=>$prefix, 'nonce'=>$args['nonce'], 'echo'=>$this->array_value($args,'echo',  false), 'echo'=>$this->array_value($args,'in_form', true) ]  );
 		}
 		catch(\Exception $ex){
 			$this->var_dump($ex);
@@ -863,7 +809,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 				throw new \Exception('options_default_table: "value" key doesnt exist in block');
 			}
 			else{
-				$line = $this->helper_optionsblock_TD($key,$block,$prefix,$currentvalues_array, $desc);
+				$line = $this->helper_optionsblock_td($key,$block,$prefix,$currentvalues_array, $desc);
 				// add line
 				$out .= '<tr class="trline '.$key.'"><td>'. $desc .'</td><td>'.$line.'</td> </tr>';
 			}
@@ -874,7 +820,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		return $out;
 	  }
 	  
-	public function helper_optionsblock_TD($key, $block, $prefix,$currentvalues_array, &$desc){
+	public function helper_optionsblock_td($key, $block, $prefix,$currentvalues_array, &$desc){
 		$desc = !empty( $this->array_value($block,'description') ) ? $this->array_value($block,'description') : $key;
 		$type = !empty( $this->array_value($block,'type') )        ? $this->array_value($block,'type')        : $key;
 		$line = '';
@@ -896,7 +842,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		}
 		elseif( is_array($val) ) {
 			$arr = $this->array_value($currentvalues_array,$key);
-			$rand_id=$this->randomId('v');
+			$rand_id=$this->random_id('v');
 			if(!array_key_exists('disable_autoadd',$block)) $arr[$rand_id] = '';
 			$line .= '<div class="sub_group_array">';
 			foreach($arr as $bKey=>$bValue ){ 
@@ -925,7 +871,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		$prefix				= $args['prefix'];
 		$nonceKey			= $args['nonce']; 
 
-		if( $this->checkSubmission( $nonceKey, 'nonceactxwe3_'.$prefix) ) {
+		if( $this->check_form_submission( $nonceKey, 'nonceactxwe3_'.$prefix) ) {
 			foreach($options_array as $key=>$block){
 				$val = $block['value'];
 				$type = $this->array_value ($block, 'type', '');
@@ -943,9 +889,9 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	#endregion
 
 	// backend
-	private function backendActKey($actName){ return 'puvox_backend_call_'.$this->slug. "_".sanitize_key($actName); }
+	private function default_nonce_action_key($actName){ return 'puvox_backend_call_'.$this->slug. "_".sanitize_key($actName); }
 	public function add_action_backend_call($actName, $callback){
-		add_action( $this->backendActKey($actName), $callback );
+		add_action( $this->default_nonce_action_key($actName), $callback );
 	}
 
 	public function register_backend_call_actions(){
@@ -969,7 +915,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 
 			}
 			else{
-				do_action($this->backendActKey($_POST['act']));
+				do_action($this->default_nonce_action_key($_POST['act']));
 			}
 			wp_die();
 		}
@@ -980,16 +926,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	}
 	
 
-
-
-	//if(!getBlogName()) { header("Location: http://www.mydomain.com/", true, 301); exit; }
-	public function getBlogName(){
-		global $current_blog; 
-		$blog_path = explode('/',$current_blog->path); 
-		if(isset($blog_path[2])) {
-			return $blog_path[2];
-		}
-	}
 
 	
 	
@@ -1097,7 +1033,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	}
 	
 
-	public function shortcode_handler_OLD($atts, $content=false){
+	public function shortcode_handler_old($atts, $content=false){
 		$d=debug_backtrace()[0];
 		if(!empty($d['args']))
 		{
@@ -1122,7 +1058,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	}
 	
 	
-    public function jqueryRestore() { 
+    public function jquery_restore_in_header_scripts() { 
 		add_action('admin_head',function(){ echo '<script>$=jQuery;</script>'; });
 		add_action('wp_head',	function(){ echo '<script>$=jQuery;</script>'; });
 	}
@@ -1134,8 +1070,8 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	}
 
 	// ================ flash rules ================= // 
-	public function flush_rules_double(){ add_action('wp', [$this, 'MyFlush__rewrite'] ); }
-	public function MyFlush__rewrite($RedirectFlushToo=false){	
+	public function flush_rules_double(){ add_action('wp', [$this, 'my_flush__rewrite'] ); }
+	public function my_flush__rewrite($RedirectFlushToo=false){	
 		$GLOBALS['wp_rewrite']->flush_rules(); 
 		flush_rewrite_rules();
 		//DUE TO WORDPRESS BUG ( https://core.trac.wordpress.org/ticket/32023 ) , i use this: (//USE ECHO ONLY! because code maybe executed before other PHP functions.. so, we shouldnt stop&redirect, but  we should redirect from already executed PHP output )
@@ -1154,12 +1090,12 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	public function shortcode_atts($shortcode, $predefined_atts, $passed_atts){
 		$new_arr=[]; 
 		foreach($predefined_atts as $x){
-			$new_arr[ $x[0] ] =  $this->stringToValue($x[1]) ;
+			$new_arr[ $x[0] ] =  $this->string_to_value($x[1]) ;
 		}
 		if (!empty($passed_atts)) {
 			$filtered_atts=[];
 			foreach($passed_atts as $key=>$value){
-				$filtered_atts[$key] =  $this->stringToValue($value) ;
+				$filtered_atts[$key] =  $this->string_to_value($value) ;
 			}
 			$new_arr = array_merge($new_arr, $filtered_atts);
 		}
@@ -1209,7 +1145,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	}
 
 	public function shortcode_example($shortcode, $array, $ended=false){
-		$out="[$shortcode ";   foreach($array as $key=>$value){   $out .= $key.'="'.$this->valueToString($value) .'" ';  }   $out = trim($out). "]";
+		$out="[$shortcode ";   foreach($array as $key=>$value){   $out .= $key.'="'.$this->value_to_string($value) .'" ';  }   $out = trim($out). "]";
 		if( $ended ) 
 			$out .= "...[/$shortcode]";
 		return $out;
@@ -1258,7 +1194,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		<?php
 	}
 	
-	public function extendShortcodes(){
+	public function extend_shortcodes(){
 		add_shortcode ('date_day', function(){ return date_i18n ('l'); } );
 		add_shortcode ('date_month', function(){ return date_i18n ('F'); } );
 		add_shortcode ('date_year', function(){ return date_i18n ('Y'); } );
@@ -1411,7 +1347,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 			}
 			return '<div class="listed_shortcode listed_'.$TYPEE.'"><ul>'.$X.'</ul></div>';
 		} );
-
 	} 
 	
 	// ==================== END | Shortcodes =======================
@@ -1432,7 +1367,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	}
 
 	//breadcrumbs: pastebin_com/CzNyaEKE
-	public function addTitleFieldToCat(){
+	public function add_title_field_to_category(){
 		add_action ( 'edit_category_form_fields', function(){
 			$cat_title = get_term_meta( (int) $_POST['tag_ID'], '_pagetitle', true);
 			?> 
@@ -1468,7 +1403,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	//add_action('save_post',  function () { var_dump($_POST); exit; }, 99, 11);  
 
 	public function debug_actions(){	add_action( 'wp_footer', function (){ var_dump( $GLOBALS['wp_filter']); } );   }
-	public function calledScript()	{ return $_SERVER["SCRIPT_FILENAME"];}
+	public function called_script()	{ return $_SERVER["SCRIPT_FILENAME"];}
 	public function is_subscriber()	  { return $this->is_helper_('read'); }
 	public function is_contributor()  { return $this->is_helper_('edit_posts'); }
 	public function is_author()		  { return $this->is_helper_('upload_files'); }
@@ -1477,7 +1412,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	private function is_helper_($what){ return (function_exists('current_user_can') || require_once(ABSPATH.'wp-includes/pluggable.php')) && current_user_can($what); }
 
 	public function user_id(){return (function_exists('current_user_can') || require_once(ABSPATH.'wp-includes/pluggable.php')) ? get_current_user_id() : -1; }
-	public function initIfEditor($func, $initPriority=1){
+	public function init_if_editor($func, $initPriority=1){
 		add_action('init', function() use ($func) { 
 			if ($this->is_editor()) 
 				call_user_func($func);
@@ -1752,7 +1687,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		elseif (is_string($auto_increment_ID))
 			$sql .= "PRIMARY KEY (`$auto_increment_ID`), UNIQUE KEY `$auto_increment_ID` (`$auto_increment_ID`) ";
 		else
-			$sql = $this->charsWithoutStartEnd($sql,0,1);
+			$sql = $this->remove_chars_from_start_end($sql,0,1);
 		$sql .=") ";
 		if ($auto_increment_ID===true)
 			$sql .=" AUTO_INCREMENT=1 ";
@@ -1909,7 +1844,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		return $GLOBALS['wpdb']->get_col("DESC `". $this->sanitize_key($table_name)."`", 0);
 	} 
 
-	public function checkErrorAddColumn($tablename, $added_column_type="mediumtext")
+	public function check_error_and_add_column($tablename, $added_column_type="mediumtext")
 	{
 		global $wpdb;
 		//"Unknown column 'c_contract' in 'field list'";
@@ -2246,7 +2181,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	
 	//change slug,if already exists slug for any other posts/or/pages
 	//add_action('save_post', 'efrg324f3f32f4',3);	
-	public function efrg324f3f32f4($post) 	{
+	public function change_slug_2_old($post) 	{
 		if (isset($_POST['post_name'])) { 
 			global $wpdb;
 			$slug = sanitize_text_field($_POST['post_name']); 
@@ -2369,16 +2304,16 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	// Default classes 
 	public function add_content_classes()
 	{
-		add_action('the_excerpt',		[$this, 'defaultContainers_excerpt']);  
-		add_action('the_excerpt_rss',	[$this, 'defaultContainers_excerpt']); //<-deprecated or not?  
-		add_action('the_excerpt_feed',	[$this, 'defaultContainers_excerpt']);
+		add_action('the_excerpt',		[$this, 'default_containers_excerpt']);  
+		add_action('the_excerpt_rss',	[$this, 'default_containers_excerpt']); //<-deprecated or not?  
+		add_action('the_excerpt_feed',	[$this, 'default_containers_excerpt']);
 
-		add_action('the_content',		[$this, 'defaultContainers_content'] );
-		add_action('the_content_rss',	[$this, 'defaultContainers_content']); //<-deprecated
-		add_action('the_content_feed',	[$this, 'defaultContainers_content']);
+		add_action('the_content',		[$this, 'default_containers_content'] );
+		add_action('the_content_rss',	[$this, 'default_containers_content']); //<-deprecated
+		add_action('the_content_feed',	[$this, 'default_containers_content']);
 	}
-	public function defaultContainers_content($cont){ return !isset($GLOBALS['post']) ? $cont : '<div class="default-content-clss cnt_' . $GLOBALS['post']->ID .' type_'.$GLOBALS['post']->post_type.' ">'.$cont.'</div>';  }
-	public function defaultContainers_excerpt($cont){ return !isset($GLOBALS['post']) ? $cont : '<div class="default-content-clss excp_'. $GLOBALS['post']->ID .' type_'.$GLOBALS['post']->post_type.' ">'.$cont.'</div>';  }
+	public function default_containers_content($cont){ return !isset($GLOBALS['post']) ? $cont : '<div class="default-content-clss cnt_' . $GLOBALS['post']->ID .' type_'.$GLOBALS['post']->post_type.' ">'.$cont.'</div>';  }
+	public function default_containers_excerpt($cont){ return !isset($GLOBALS['post']) ? $cont : '<div class="default-content-clss excp_'. $GLOBALS['post']->ID .' type_'.$GLOBALS['post']->post_type.' ">'.$cont.'</div>';  }
 
 	//CSS CLASSES for BODY
 	public function add_my_body_classes() { add_filter( 'body_class', 		[$this, 'add_my_body_classes_HELPER'] ); add_filter( 'admin_body_class', [$this, 'add_my_body_classes_HELPER'] ); }
@@ -2493,9 +2428,9 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		}
 		// initial variables
 		$this->my_plugin_vars();
-		$this->network_managed_is_selected	= is_multisite() && $this->IsNetworkManaged();
+		$this->network_managed_is_selected	= is_multisite() && $this->is_network_managed();
 		$this->opts				= $this->refresh_options();							// Setup final variables
-		$this->refresh_options_TimeGone();
+		$this->refresh_options_time_gone();
 		$this->helpers->logs_table_name	= $this->get_prefix_CHOSEN() . $this->plugin_slug_u.'__errors_log';	// error logs table name
 		$this->helpers->logs_table_maxnum= 50;	// maximum rows in errors logs table
 		$this->helpers->create_log_table();
@@ -2510,8 +2445,8 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		// multi-site:  if main-button: admin.php (multi & sub) | else: if sub-site: options-general.php else: settings.php
 		$this->settingsPHP_page_dynamic = $this->static_settings['menu_pages']['first']['level']=='mainmenu' ? 'admin.php' : ( !is_multisite() ? 'options-general.php' :  (!is_network_admin() ? 'options-general.php' : 'settings.php' ) );  // || !$this->network_managed_is_selected <--- no need, let users allow to have menu page in other panels too, there we give notice to manage from appropriate place 
 
-		//$this->plugin_page_url = ( !is_multisite() || !$this->ManagerPageAllow_network() || !$this->network_managed_is_selected ) ? admin_url() : network_admin_url();
-		$this->plugin_page_url = ( !is_multisite() || !$this->ManagerPageAllow_network() || !$this->network_managed_is_selected ) ? admin_url() : network_admin_url();
+		//$this->plugin_page_url = ( !is_multisite() || !$this->helper_manager_page_network_is_allowed() || !$this->network_managed_is_selected ) ? admin_url() : network_admin_url();
+		$this->plugin_page_url = ( !is_multisite() || !$this->helper_manager_page_network_is_allowed() || !$this->network_managed_is_selected ) ? admin_url() : network_admin_url();
 
 		$this->plugin_page_url .= ( !empty($this->static_settings['custom_opts_page']) ?  $this->static_settings['custom_opts_page'] : $this->settingsPHP_page_dynamic.'?page='.$this->slug); 
 
@@ -2529,7 +2464,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		add_action('init', [$this, 'load_textdomain'] );
 
 		//==== my other default hooks ===//
-		$this->plugin__setupLinksAndMenus();
+		$this->plugin__setup_links_and_menus();
 
 		//shortcodes
 		$this->shortcodes_initialize();
@@ -2615,20 +2550,20 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 
  
 
-	public function plugin__setupLinksAndMenus()
+	public function plugin__setup_links_and_menus()
 	{
 		// If plugin has options, show button (in admin menu sidebar)
 		if($this->static_settings['show_opts']===true)  //only this, because sometimes if we want to disable menu-button, then we set to "submodule" instead of true
 		{
 			if (is_multisite()){
 				if ( $this->network_wide_active )
-					add_action('network_admin_menu', [$this, 'plugin__registerHandle'] );
+					add_action('network_admin_menu', [$this, 'plugin__register_handle'] );
 				if ( !$this->network_managed_is_selected ){
-					add_action('admin_menu',  [$this, 'plugin__registerHandle'] );
+					add_action('admin_menu',  [$this, 'plugin__register_handle'] );
 				}
 			}
 			else {
-				add_action('admin_menu',  [$this, 'plugin__registerHandle'] );
+				add_action('admin_menu',  [$this, 'plugin__register_handle'] );
 			}		
 			//redirect to settings page after activation (if not bulk activation)
 			add_action('activated_plugin', function($plugin) { if ($this->is_not_bulk_activation($plugin))  { exit( wp_redirect($this->plugin_page_url.'&isactivation') ); } } );
@@ -2648,11 +2583,11 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		}
 	}
 		//helper for above func
-		public function plugin__registerHandle()
+		public function plugin__register_handle()
 		{
 			foreach($this->static_settings['menu_pages'] as $menuTitle=>$menuBlock){
 				$menu_button_name = $menuBlock['title'];
-				if ( $this->helpers->valueIs($menuBlock, 'level', 'mainmenu' )  )  // icons: https://goo.gl/WXAYCi 
+				if ( $this->helpers->array_value($menuBlock, 'level') === 'mainmenu' )  // icons: https://goo.gl/WXAYCi 
 					add_menu_page($menu_button_name, $menu_button_name, $menuBlock['required_role'] , $this->slug, [$this, 'opts_page_output_parent'], $menuBlock['icon'] );
 				else 
 					add_submenu_page($this->settingsPHP_page_dynamic, $menu_button_name, $menu_button_name, $menuBlock['required_role'] , $this->slug,  [$this, 'opts_page_output_parent'] );
@@ -2670,12 +2605,12 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		if ( is_multisite() )
 		{ 
 			if(
-				( !$this->ManagerPageAllow_network() && ( $this->is_network_admin_referrer()  || $network_wide) )
+				( !$this->helper_manager_page_network_is_allowed() && ( $this->is_network_admin_referrer()  || $network_wide) )
 					||
-				( !$this->ManagerPageAllow_singlesite() && (!$this->is_network_admin_referrer() || !$network_wide ) )
+				( !$this->helper_manager_page_subsite_is_allowed() && (!$this->is_network_admin_referrer() || !$network_wide ) )
 			)
 			{
-				$text= '<h2><code>'.$this->opts['name'].'</code>: '. $this->static_settings['menu_text']['activated_only_from']. ' <b style="color:red;">'.($this->ManagerPageValue()).'</b></h2>';
+				$text= '<h2><code>'.$this->opts['name'].'</code>: '. $this->static_settings['menu_text']['activated_only_from']. ' <b style="color:red;">'.($this->helper_manager_page_value()).'</b></h2>';
 				//$text .=  '<script>alert("'.strip_tags($text).'");</script>';
 				//header_remove("Location"); header_remove("X-Redirect-By"); 
 				die($text);
@@ -2746,7 +2681,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		$this->refresh_options();  call_user_func($func); $this->update_opts();
 	}
 
-	public function refresh_options_TimeGone(){
+	public function refresh_options_time_gone(){
 		//if never updated
 		if(empty($this->opts['first_install_date'])) {
 			$should_update=true;	$this->opts['first_install_date'] = time();
@@ -2820,12 +2755,15 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	}
 
 	// quick method to update this plugin's opts
-	public function optName($optname, $prefix=false){
+	public function opt_name($optname, $prefix=false){
 		if( substr($optname,  0, 1) == '`'  ) {  $prefix=true;  $optname= substr($optname,1); }
 		return ( !$prefix || stripos($optname, $this->slug) !== false )  ? $optname :  $this->slug . '_' . $optname;
 	}
+	public function optName($optname, $prefix=false){
+		return $this->opt_name($optname, $prefix);
+	}
 
-	public function setProperty($name, $value) {
+	public function set_property($name, $value) {
 		if (property_exists($this->helpers, $name)) {
 			$this->helpers->$name = $value;
 		}
@@ -2879,7 +2817,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	
 	//
 	
-	public function addSettingsPage($array){
+	public function add_settings_page($array){
 		$actions = [];
 		if (is_multisite()){
 			if ( $this->network_wide_active ) $actions[] = 'network_admin_menu'; 
@@ -2927,47 +2865,32 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		  $this->update_opts();
 		}
     }
-	public function getSubOption($subChildSlug, $keyName=null, $default =null){
+	public function get_sub_option($subChildSlug, $keyName=null, $default =null){
 		return is_null($keyName) ? $this->opts['sub_'.$subChildSlug] : $this->array_value($this->opts['sub_'.$subChildSlug], $keyName, $default); 
 	}
-	public function setSubOption($subChildSlug, $value, $keyName=null){ 
+	public function set_sub_option($subChildSlug, $value, $keyName=null){ 
 		if(empty($keyName)) $this->opts['sub_'.$subChildSlug]=$value; else $this->opts['sub_'.$subChildSlug][$keyName]=$value; return $this->update_opts(); 
 	}
-	public function updateSubOption($subChildSlug, $value, $keyName=null){ 
-		return $this->setSubOption($subChildSlug, $value, $keyName);
+	public function update_sub_option($subChildSlug, $value, $keyName=null){ 
+		return $this->set_sub_option($subChildSlug, $value, $keyName);
 	}
 
-
-	
-	// ######################
-	public function postOptionIsset($name){
+	public function post_option_is_set($name){
 		return isset($_POST[$this->slug][$name]);
 	}
-	public function postOptionValue($name){
+	public function post_option_value($name){
 		return $_POST[$this->slug][$name];	//Note, the response of this method is always "sanitized & filtered" in any implemented methods
-	}
-	public function postOptionText($name){
-		return $this->sanitize_text_field($this->postOptionValue($name));
-	}
-	public function postOptionNumber($name){
-		return (int) $this->postOptionValue($name);
-	}
-	public function postOptionKey($name){
-		return sanitize_key($this->postOptionValue($name));
 	}
 	//
 	
-	
-	
-	public function ManagerPageValue($menuNameId='first') { return $this->static_settings['menu_pages'][$menuNameId]['default_managed'] ; }
-	public function ManagerPageAllow_network() { return ( (is_multisite() && in_array($this->ManagerPageValue(), ['network','both']) ) || ( !is_multisite() ) ) ; }
-	public function ManagerPageAllow_singlesite() {( (is_multisite() && in_array($this->ManagerPageValue(), ['subsite','both']) ) || ( !is_multisite() ) ) ; }
-	
-	public function IsNetworkManaged(){
+	public function helper_manager_page_value($menuNameId='first') { return $this->static_settings['menu_pages'][$menuNameId]['default_managed'] ; }
+	public function helper_manager_page_network_is_allowed() { return ( (is_multisite() && in_array($this->helper_manager_page_value(), ['network','both']) ) || ( !is_multisite() ) ) ; }
+	public function helper_manager_page_subsite_is_allowed() {( (is_multisite() && in_array($this->helper_manager_page_value(), ['subsite','both']) ) || ( !is_multisite() ) ) ; }
+	public function is_network_managed(){
 		return get_site_option( $this->slug . '_network_managed', true );
 	}
 
-	public function updateNetworkedState($value){
+	public function helper_update_managed_value($value){
 		$key = $this->slug . '_network_managed';
 		if ( ! $this->option_exists( $key, true) ){
 			add_site_option( $key, true );
@@ -3001,19 +2924,19 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		
 
 
-	public function paypalDonationButton(){ return '<a class="button" style="display:inline-block; line-height:1em; min-height:25px; color:#179bd7; " href="javascript:tt_donate_trigger(event);" onclick="tt_donate_trigger(event);"/> <img style="height:20px; vertical-align:middle;" src="'.  $this->helpers->imageSvg("paypal") .'" /> '. __("donation") .'</a>'; }
+	public function paypal_donation_button(){ return '<a class="button" style="display:inline-block; line-height:1em; min-height:25px; color:#179bd7; " href="javascript:tt_donate_trigger(event);" onclick="tt_donate_trigger(event);"/> <img style="height:20px; vertical-align:middle;" src="'.  $this->helpers->image_svg("paypal") .'" /> '. __("donation") .'</a>'; }
 	
 	public function donations_trigger_popup()
 	{
 		// ############ donations #############
-		if ( $this->static_settings['show_donation_popup'] && ! $this->helpers->valueIs($this->opts, 'donate_popup_a2', '1d') )
+		if ( $this->static_settings['show_donation_popup'] && ! $this->helpers->array_value($this->opts, 'donate_popup_a2') === '1d' )
 		{
 			//show only after save/redirection
 			if (  $this->opts['first_install_date'] != $this->opts['last_update_time'] )
 			{
 				$this->opts['donate_popup_a2']="1d";
 				$this->update_opts();
-				$text = sprintf(__('Dear users, our plugin (<code>%s</code>) is free. However, every plugin needs noticeable amount of work by developer. If you found this plugin useful, your minimal %s will support developer to maintain this plugin and keep it functional. <br/>Thank you.'), $this->static_settings['Name'], $this->paypalDonationButton() );
+				$text = sprintf(__('Dear users, our plugin (<code>%s</code>) is free. However, every plugin needs noticeable amount of work by developer. If you found this plugin useful, your minimal %s will support developer to maintain this plugin and keep it functional. <br/>Thank you.'), $this->static_settings['Name'], $this->paypal_donation_button() );
 				?>
 				<div id="paypal_donation_popup_2"><input type="hidden" autofocus/><?php echo $text;?></div>
 				<script>
@@ -3045,7 +2968,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		{
 			$optname=  'my_custom_note_'.$this->plugin_slug;
 			//if form updated
-			if( $this->checkSubmission('_wp_note_nonce2', 'note_nonce2_' ) )
+			if( $this->check_form_submission('_wp_note_nonce2', 'note_nonce2_' ) )
 			{
 				update_option($optname, $this->wp_kses($_POST['mynote']) );
 			}
@@ -3081,7 +3004,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	}
 
 
-    public function OptionsForKeys_helper($keyName, $include_type=''){
+    public function options_for_keys__helper($keyName, $include_type=''){
         $array = [];
         foreach($this->initial_user_options as $key=>$val)
         {
@@ -3092,7 +3015,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 				} 
 				else if ( 
 					   ($include_type==""      && $this->helpers->contains($key, $keyName) )
-					|| ($include_type=="start" && $this->helpers->startsWith($key,$keyName))
+					|| ($include_type=="start" && $this->helpers->starts_with($key,$keyName))
 					|| ($include_type=="end"   && $this->helpers->endsWith($key,$keyName))
 				)
 				{
@@ -3102,11 +3025,11 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
         }
         return $array;
     }
-    public function OptionsForKeys_table($keyName='', $include_type=''){
-		?><table class="form-table"><td colspan="100%"><h3>Options</h3></td><?php $this->OptionsForKeys_Output();?></table><?php 
+    public function options_for_keys_table($keyName='', $include_type=''){
+		?><table class="form-table"><td colspan="100%"><h3>Options</h3></td><?php $this->options_for_keys_output();?></table><?php 
 	}
-    public function OptionsForKeys_Output($keyName='', $include_type=''){
-		foreach ( $this->OptionsForKeys_helper($keyName,$include_type) as $key=>$val ) { 
+    public function options_for_keys_output($keyName='', $include_type=''){
+		foreach ( $this->options_for_keys__helper($keyName,$include_type) as $key=>$val ) { 
 			$value   = $this->opt($key);
 			$is_bool = is_bool($value);  
 			?>
@@ -3120,8 +3043,8 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 			</tr>
 		<?php }
 	}
-    public function OptionsForKeys_update($keyName='', $include_type=''){
-		foreach ( $this->OptionsForKeys_helper($keyName,$include_type) as $key=>$val ) { 
+    public function options_for_keys_update($keyName='', $include_type=''){
+		foreach ( $this->options_for_keys__helper($keyName,$include_type) as $key=>$val ) { 
 			$value   = $this->opt($key);
 			$is_bool = is_bool($value);
 			$this->opts[$key] = $is_bool ? isset($_POST[ $this->plugin_slug ][$key]) : sanitize_text_field( stripslashes($_POST[ $this->plugin_slug ][$key]) );   
@@ -3278,7 +3201,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		return esc_url(remove_query_arg($param, $val));
 	}
 
-	public function checkNonce($str1="mng_nonce", $str2="nonce_mng_" ){
+	public function check_nonce($str1="mng_nonce", $str2="nonce_mng_" ){
 		return !empty( $_POST[$str1] ) && check_admin_referer( $str2 . $this->slug, $str1);
 	}
 	
@@ -3286,12 +3209,12 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	{
 		if(is_network_admin())
 		{
-			if( $this->checkNonce( "mng_nonce_ADM", "nonce_mng_ADM_" ) ) 
+			if( $this->check_nonce( "mng_nonce_ADM", "nonce_mng_ADM_" ) ) 
 			{
 				if( isset( $_POST[$this->slug]['managed_from_changer'] ) ){
 					$val = $_POST[$this->slug]['managed_from_site']=='network' ;
 					$this->network_managed_is_selected = $val;
-					$this->updateNetworkedState($val);
+					$this->helper_update_managed_value($val);
 					$this->helpers->js_redirect();
 				}
 			}
@@ -3343,7 +3266,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	
 
 	public function settings_page_check_save(){
-		if( $this->checkSubmission( 'nonce3'. $this->slug, 'nonceact3'. $this->slug ) )
+		if( $this->check_form_submission( 'nonce3'. $this->slug, 'nonceact3'. $this->slug ) )
 		{
 			if(!empty($_POST[$this->slug]) ) {
 				$this->opts['last_update_time'] = time();
@@ -3398,7 +3321,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		{
 			if ($this->active_tab == 'Options')
 			{ 
-				if ($this->helpers->extra_options_enabled) $this->customOptsOutput();
+				if ($this->helpers->extra_options_enabled) $this->custom_options_table();
 			} 
 
 			// #########################################################
@@ -3569,7 +3492,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		elseif ($type=="end")
 		{ ?>
 				</div><!-- optwindow -->
-				<?php $this->endStyles();?>
+				<?php $this->end_styles();?>
 			</div><!-- myplugin -->
 		<?php
 		}
@@ -3582,11 +3505,11 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		$this->initial_user_options = $array;
 	}
 
-	public function customOptsOutput() {
+	public function custom_options_table() {
 		$all_opts=$this->get_my_site_option();
 		//if updated
 		if (isset($_POST['securit_noncee223'])){    
-			$this->NonceCheckk('securit_noncee223','myopts_exs2');
+			$this->nonce_checkk('securit_noncee223','myopts_exs2');
 
 			$all_opts= $this->sanitize_text_field_recursive( $_POST['my'] ); 
 			$this->update_my_site_options($all_opts);
@@ -3599,14 +3522,14 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 			<?php
 			$this->input_fields_from_array($all_opts,'my');
 			?>
-			<div class="my_save_divv" style="text-align:center; padding:10px;  z-index:999; "><input type="submit" class="my_SUBMITT" value="SAVE" /></div> <?php echo $this->NonceFieldd('securit_noncee223','myopts_exs2'); ?> 
+			<div class="my_save_divv" style="text-align:center; padding:10px;  z-index:999; "><input type="submit" class="my_SUBMITT" value="SAVE" /></div> <?php echo $this->nonce_field('securit_noncee223','myopts_exs2'); ?> 
 		</form>
 		<?php 
 	}
 
 
 	
-	public function endStyles($external=false)
+	public function end_styles($external=false)
 	{ ?>
 		<?php 
 		if ($external===false) {
@@ -3729,7 +3652,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 				<ul class="donations_block">
 					<li class="donation_li">
 						<!-- <?php _e('If you found this plugin useful, any donation is welcomed');?> :  $<input id="donate_pt" type="number" class="numeric_input" value="4" /> <button onclick="tt_donate_trigger(event);"/><?php _e('Donate');?></button> -->
-						<?php _e('If you found this plugin useful, any amount of');?> <?php echo $this->paypalDonationButton();?> <?php _e(' is welcomed');?> 
+						<?php _e('If you found this plugin useful, any amount of');?> <?php echo $this->paypal_donation_button();?> <?php _e(' is welcomed');?> 
 						<script>
 						function tt_donate_trigger(e)
 						{
@@ -3754,7 +3677,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 			<div class="review_block">
 				<a class="review_leave" href="<?php echo $this->static_settings['wp_rate_url'];?>" target="_blank">
 					<span class="leaverating"><?php _e('Rate plugin');?></span>
-					<img class="stars" src="<?php echo $this->helpers->imageSvg("rating-transparent");?>" />
+					<img class="stars" src="<?php echo $this->helpers->image_svg("rating-transparent");?>" />
 				</a>
 			</div>
 			<?php } ?>
@@ -3810,24 +3733,62 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	 
 
 
-	public function multitisteUninstall()
+	public function multisite_uninstall()
 	{
 		if (is_multisite()) {
-			single_uninstall();
+			$this->single_uninstall();
 
 			// delete data foreach blog
 			$blogs_list = $GLOBALS['wpdb']->get_results("SELECT blog_id FROM {$GLOBALS['wpdb']->blogs}", ARRAY_A);
 			if (!empty($blogs_list)) {
 				foreach ($blogs_list as $blog) {
 					switch_to_blog($blog['blog_id']);
-					single_uninstall();
+					$this->single_uninstall();
 					restore_current_blog();
 				}
 			}
 		} else {
-			single_uninstall();
+			$this->single_uninstall();
 		}
 	}
+
+	// sample from: https://github.com/Codeinwp/wp-maintenance-mode/blob/master/uninstall.php
+	public function  single_uninstall() {
+		// delete subscribers table
+		$GLOBALS['wpdb']->query( "DROP TABLE IF EXISTS {$GLOBALS['wpdb']->prefix}wpmm_subscribers" );
+	
+		// delete options
+		$options_to_delete = array(
+			'wpmm_settings',
+			'wpmm_notice',
+			'wpmm_version',
+		);
+	
+		foreach ( $options_to_delete as $option ) {
+			delete_option( $option );
+		}
+	
+		// delete dismissed notices meta key
+		$users_with_dismissed_notices = (array) get_users(
+			array(
+				'fields'   => 'ids',
+				'meta_key' => 'wpmm_dismissed_notices',
+			)
+		);
+	
+		foreach ( $users_with_dismissed_notices as $user_id ) {
+			delete_user_meta( $user_id, 'wpmm_dismissed_notices' );
+		}
+	
+		// delete bot settings file (data.js)
+		$upload_dir        = wp_upload_dir();
+		$bot_settings_file = ! empty( $upload_dir['basedir'] ) ? trailingslashit( $upload_dir['basedir'] ) . 'data.js' : false;
+	
+		if ( $bot_settings_file !== false && file_exists( $bot_settings_file ) ) {
+			wp_delete_file( $bot_settings_file );
+		}
+	}
+
 
 	public function admin_scripts($hook)  //i.e. edit.php
 	{
@@ -4071,7 +4032,7 @@ class wp_plugin_pro extends wp_plugin
 		$key = sanitize_text_field($license);
 		$answer = $this->license_answer($key, $type);
 
-		if(!$this->helpers->is_JSON_string($answer)){
+		if(!$this->helpers->is_json($answer)){
 			$result = [];
 			$result['error'] = $answer;
 		}
@@ -4149,7 +4110,7 @@ class wp_plugin_pro extends wp_plugin
 			.myplugin .illegal_missing {font-size:12px; word-wrap:pre-wrap; }
 			[data-pro-overlay=pro_overlay]{  pointer-events: none;  cursor: default;  position:relative;  min-height: 2em;  padding:5px; }
 			[data-pro-overlay=pro_overlay]::before{   content:""; width: 100%; height: 100%; position: absolute; background: black; opacity: 0.3; z-index: 1;  top: 0;   left: 0;
-				background: url("<?php echo $this->helpers->imageSvg('overlay-pro');?>");
+				background: url("<?php echo $this->helpers->image_svg('overlay-pro');?>");
 			}
 			[data-pro-overlay=pro_overlay]::after{ 
 				white-space: pre; content: "<?php $str=__('Only available in FULL VERSION');  echo str_repeat($str.'\a\a\a\a\a\a\a\a\a\a\a\a\a\a\a\a\a\a\a', 4).$str;?>"; 
