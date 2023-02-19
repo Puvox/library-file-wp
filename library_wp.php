@@ -1880,7 +1880,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	{    
 		$time = $time ?: time();
 		$res =  $this->update_or_insert( $this->db_alldata_tablename(), 
-			['option_name'=>$key, 'text'=>$this->textify_or_not($data), 'time'=>$time],  
+			['option_name'=>$key, 'text'=>$this->stringify($data), 'time'=>$time],  
 			'option_name');
 		return $res;
 	}
@@ -2420,7 +2420,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	public function plugin_inits()
 	{			
 		$this->wpdb 	= $GLOBALS['wpdb']; 
-		$this->helpers->loadScripsStyles();
+		$this->helpers->load_scripts_styles();
 
 		if (!$this->helpers->above_version("5.4")){
 			register_activation_hook( $this->helpers->plugin_entryfile,	function(){ exit( __("Sorry, your PHP version ". phpversion() ." is very old. We suggest changing your hosting's PHP version to latest available v7 version.") ); }	);
@@ -2520,7 +2520,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 				'activated_only_from'	=>__('Plugin activable only from'),
 				'deactivated_only_from'	=>__('Plugin deactivable only from'),
 			),
-			'lang'				=> $this->helpers->get_locale__SANITIZED(),
+			'lang'				=> $this->helpers->get_locale_sanitized(),
 			'wp_rate_url'		=> 'https://wordpress.org/support/plugin/'.$this->slug.'/reviews/#new-post',
 			'donate_url'		=> 'https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=contact@puvox.software&tax=0&currency=USD&item_name=For%20Programming%20Services', // business: http://paypal.me/Puvox   ||  personal : http://paypal.me/ttodua || https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=contact@puvox.software&tax=0&currency=USD&item_name=For%20Programming%20Services  || https://stackoverflow.com/a/43083891/2377343
 			'donate_default'	=> 4,
