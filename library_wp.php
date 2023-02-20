@@ -2164,7 +2164,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	// 		'value'		   => true,
 	// 	  ],
 	// 	  ...
-    public function options_show_table($unique_form_name = "my_opts1", $stardard_options_array, $existing_options_values = [], $wrap_in_table = false, $wrap_in_form = false){
+    public function options_show_table($unique_form_name = "my_opts1", $stardard_options_array = [], $existing_options_values = [], $wrap_in_table = false, $wrap_in_form = false){
 		$out = '';
 		$prefix = $unique_form_name;
 		// save
