@@ -763,131 +763,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	public function nonce_field($name='nonce_input_name', $action_name='blabla')  { return '<input type="hidden" name="'.$name.'" value="'.wp_create_nonce($action_name).'" />';}
 
 
-	#region ######### OPTIONS TABLES #########
-	/* **** USAGE from plugin *****
-		$optsArray = [
-			'send_email_to_me'     => ['value'=>true, 'description'=> 'allow sending mail to me'],
-			'interval_seconds'     => ['value'=>30],
-			'title_of_address'     => ['value'=>'wzt street #2', 'type'=>'textarea'],
-		];
-		$this->helpers->options_table_full( ['class'=>$this, 'prefix'=>'my_diary', 'options'=>$optsArray, 'in_form'=>true] );
-	*/
-
-	public function options_table_full( $args ){
-		try{
-			$holder_class       = $args['class'];
-			$prefix				= $args['prefix']; 
-			$initialOpts = $this->array_value ($args, 'options', $holder_class->initial_options_arrays[$prefix]);
-			$updatedCallback = $this->array_value ($args, 'updatedCallback', null);
-			$res = $this->options_default_parse( ['options'=>$initialOpts, 'prefix'=>$prefix, 'nonce'=>$args['nonce'], 'updatedCallback'=>$updatedCallback] );
-			if (!empty($res)){
-				$holder_class->set_sub_option($prefix, $res);
-			}
-			echo $this->options_default_table( ['options'=>$initialOpts, 'currentvalues'=>$holder_class->get_sub_option($prefix), 'prefix'=>$prefix, 'nonce'=>$args['nonce'], 'echo'=>$this->array_value($args,'echo',  false), 'echo'=>$this->array_value($args,'in_form', true) ]  );
-		}
-		catch(\Exception $ex){
-			$this->var_dump($ex);
-		}
-	}
-
-	public function options_default_table($args){
-		$options_array      = $args['options'];
-		$currentvalues_array= $args['currentvalues'];
-		$prefix				= $args['prefix'];
-		$nonceKey			= $args['nonce'];
-		$echo				= $this->array_value($args,'echo',  false);
-		$form				= $this->array_value($args,'in_form',  true);
-
-		$out ='';
-		$out .= $form ? '<form class="mainForm" method="post" action="">' : '';
- 
-		$out .= '<style> .form-table .sub_group_array{margin:20px; display:flex; flex-wrap:wrap; } .form-table .arraydiv{display: flex; flex-direction: column; background: #e7e7e7d7; margin: 2px; padding: 4px;}  </style>';
-		$out .= '<table class="form-table"><thead></thead><tbody>';
-		foreach($options_array as $key=>$block){
-			// if block is also array of groups
-			if(!array_key_exists('value',$block)){
-				throw new \Exception('options_default_table: "value" key doesnt exist in block');
-			}
-			else{
-				$line = $this->helper_optionsblock_td($key,$block,$prefix,$currentvalues_array, $desc);
-				// add line
-				$out .= '<tr class="trline '.$key.'"><td>'. $desc .'</td><td>'.$line.'</td> </tr>';
-			}
-		}
-		$out .= '</tbody></table>';
-
-		$out .= $form ? $this->submit_button('SAVE SETTINGS', $nonceKey, 'nonceactxwe3_'.$prefix).'</form>' : '';
-		return $out;
-	  }
-	  
-	public function helper_optionsblock_td($key, $block, $prefix,$currentvalues_array, &$desc){
-		$desc = !empty( $this->array_value($block,'description') ) ? $this->array_value($block,'description') : $key;
-		$type = !empty( $this->array_value($block,'type') )        ? $this->array_value($block,'type')        : $key;
-		$line = '';
-		$val = $block['value'];
-		$placeholder = $this->array_value($block,'placeholder', $this->array_value($block,'value','')); 
-		if    ( is_bool($val) )
-			$line .= '<input name="'.$prefix.'['.$key.']" value="1" type="checkbox" '. $this->checked_if_value($currentvalues_array,$key).' />';
-		elseif( is_double($val) )
-			$line .= '<input name="'.$prefix.'['.$key.']" value="'. $this->array_value($currentvalues_array,$key) .'" placeholder="'.$placeholder.'" style="width:70px;" />';
-		elseif( is_integer($val) )
-			$line .= '<input name="'.$prefix.'['.$key.']" value="'. $this->array_value($currentvalues_array,$key) .'" placeholder="'.$placeholder.'" style="width:70px;" />';
-		elseif( is_string($val) ){
-			if($type=='textarea') 
-				$line .= '<textarea name="'.$prefix.'['.$key.']" placeholder="'.$placeholder.'" >'. $this->array_value($currentvalues_array,$key) .'</textarea>';
-			else if($type=='html') 
-				$line .= $val; 
-			else                  
-				$line .= '<input name="'.$prefix.'['.$key.']" value="'. $this->array_value($currentvalues_array,$key) .'" placeholder="'.$placeholder.'" />'; 
-		}
-		elseif( is_array($val) ) {
-			$arr = $this->array_value($currentvalues_array,$key);
-			$rand_id=$this->random_id('v');
-			if(!array_key_exists('disable_autoadd',$block)) $arr[$rand_id] = '';
-			$line .= '<div class="sub_group_array">';
-			foreach($arr as $bKey=>$bValue ){ 
-				$is_random = $bKey==$rand_id;
-				if( isset($bValue) || $is_random ) {	
-					$line .= '<div class="arraydiv">';
-					$line .= "<span>{$bKey}</span>";
-					if($type=='textarea') 
-						$line .= '<textarea name="'.$prefix.'['.$key.']['.$bKey.']" placeholder="'. (!is_array($placeholder)? $placeholder : '').'">'. $bValue .'</textarea>'; 
-					else                  
-						$line .= '<input name="'.$prefix.'['.$key.']['.$bKey.']" value="'. $bValue .'" placeholder="'. (!is_array($placeholder)? $placeholder : '').'" />'; 	
-					$line .= '</div>';
-				}
-			}
-			$line .= '</div>';
-		}
-		else{  //default to textbox
-			$line .= '<input name="'.$prefix.'['.$key.']" value="'. $this->array_value($currentvalues_array,$key) .'" placeholder="'.$val.'" />'; 
-		}
-		return $line;
-	  }
-
-	public function options_default_parse( $args ){
-		$res = [];
-		$options_array      = $args['options'];
-		$prefix				= $args['prefix'];
-		$nonceKey			= $args['nonce']; 
-
-		if( $this->check_form_submission( $nonceKey, 'nonceactxwe3_'.$prefix) ) {
-			foreach($options_array as $key=>$block){
-				$val = $block['value'];
-				$type = $this->array_value ($block, 'type', '');
-				if ($type === 'html') continue;
-				if    ( is_bool   ($val) )   $res[$key] = isset($_POST[$prefix][$key]); 
-				elseif( is_double ($val) )   $res[$key] = (double)($_POST[$prefix][$key]); 
-				elseif( is_integer($val) )   $res[$key] = (int)($_POST[$prefix][$key]); 
-				elseif( is_string ($val) )   $res[$key] = stripslashes(sanitize_textarea_field($_POST[$prefix][$key])); 
-				elseif( is_array  ($val) )	$res[$key] = $this->array_map_recursive( 'stripslashes', $this->array_map_recursive( 'sanitize_textarea_field', $_POST[$prefix][$key] ) );
-			}
-			if (array_key_exists('updatedCallback',$args)) call_user_func($args['updatedCallback']);
-		}
-		return $res;
-	}
-	#endregion
-
 	// backend
 	private function default_nonce_action_key($actName){ return 'puvox_backend_call_'.$this->slug. "_".sanitize_key($actName); }
 	public function add_action_backend_call($actName, $callback){
@@ -2276,6 +2151,185 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	}
  
 	
+
+
+
+
+	#region ================= APP OPTIONS =================
+	// [	
+	// 	  'my_option_keyname'	=> [
+	// 		'title'		   => 'What is your city',
+	// 		'description'  => 'Please input your city, because we ...',
+	// 		'type'		   => 'checkbox',
+	// 		'value'		   => true,
+	// 	  ],
+	// 	  ...
+    public function options_show_table($unique_form_name = "my_opts1", $stardard_options_array, $existing_options_values = [], $wrap_in_table = false, $wrap_in_form = false){
+		$out = '';
+		$prefix = $unique_form_name;
+		// save
+		if( $this->check_form_submission( 'nonceKeyRand_'.$prefix, 'nonceActRand_'.$prefix) ) {
+			foreach ($stardard_options_array as $key => $block)
+			{
+				$type = $this->array_value ($block, 'type', '');
+				if ($type === 'linebreak') continue;
+				$val = $block['default'];
+				if    ( is_bool   ($val) )   $existing_options_values[$key] = isset($_POST[$prefix][$key]); 
+				elseif( is_numeric ($val) )  $existing_options_values[$key] = (double)($_POST[$prefix][$key]); 
+				elseif( is_string ($val) )   $existing_options_values[$key] = stripslashes(sanitize_textarea_field($_POST[$prefix][$key])); 
+				elseif( is_array ($val) )	 $existing_options_values[$key] = $this->array_map_recursive(['sanitize_textarea_field','stripslashes'], $_POST[$prefix][$key] ) ;
+			}
+		}
+		// output
+		if ($wrap_in_form) { $out .= '<form class="options_form" method="post" action="">'; }
+		if ($wrap_in_table) { $out .= '<table class="form-table"><tbody>'; }
+		foreach ($stardard_options_array as $key_name => $block)
+		{
+			$type          = $block['type'];
+			$title         = $this->array_value($block, 'title');
+			if (function_exists('__')) { $title = __($title); } // support translation
+			
+			if ($type == 'linebreak') {
+				$input_html = '<hr>';
+				$out .= 
+				'<tr class="trline tr_'.$key_name.' trempty"><td colspan="100%">'. $title .'</td></tr>';
+			}
+			else {
+				$default_value = $block['default'];
+				$current_value = $this->array_value($existing_options_values, $key_name); 
+				$is_numeric    = is_numeric($default_value);
+				$is_string     = is_string($default_value);
+				$is_color      = $is_string && self::is_color_string($default_value);
+				$description   = $this->array_value($block, 'description');
+				$type          = $this->array_value($block, 'type', 'text');
+				$placeholder   = $this->array_value($block, 'placeholder', $default_value);
+
+				$input_html = '';
+				if    ( is_bool($default_value) )
+					$input_html = '<input name="'.$prefix.'['.$key_name.']" value="1" type="checkbox" '. $this->if_checked($current_value).' />';
+				elseif( is_numeric($default_value) )
+					$input_html = '<input name="'.$prefix.'['.$key_name.']" value="'. number_format($current_value) .'" placeholder="'.$placeholder.'" style="width:70px;" />';
+				elseif( is_string($default_value) ){
+					if($type=='color')
+						$input_html = '<input type="color" name="'.$prefix.'['.$key_name.']" value="'. esc_attr($current_value) .'" placeholder="'.$placeholder.'" style="width:70px;" />';
+					else if($type=='textarea') 
+						$input_html = '<textarea name="'.$prefix.'['.$key_name.']" placeholder="'.$placeholder.'" >'. $current_value .'</textarea>';
+					else if($type=='html') 
+						$input_html = $val; 
+					else    //default to text              
+						$input_html = '<input name="'.$prefix.'['.$key_name.']" value="'. $current_value .'" placeholder="'.$placeholder.'" />'; 
+				}
+				elseif( is_array($default_value) ) {
+					$arr = $current_value;
+					$rand_id=$this->random_id('v');
+					if(!array_key_exists('disable_autoadd',$block)) $arr[$rand_id] = '';
+					$input_html = '<div class="sub_group_array">';
+					foreach($arr as $bKey=>$bValue ){ 
+						$is_random = $bKey==$rand_id;
+						if( isset($bValue) || $is_random ) {	
+							$input_html .= '<div class="arraydiv">';
+							$input_html .= "<span>{$bKey}</span>";
+							if($type=='textarea') 
+								$input_html .= '<textarea name="'.$prefix.'['.$key.']['.$bKey.']" placeholder="'. (!is_array($placeholder)? $placeholder : '').'">'. $bValue .'</textarea>'; 
+							else                  
+								$input_html .= '<input name="'.$prefix.'['.$key.']['.$bKey.']" value="'. $bValue .'" placeholder="'. (!is_array($placeholder)? $placeholder : '').'" />'; 	
+							$input_html .= '</div>';
+						}
+					}
+					$input_html .= '</div>';
+				}
+				$input_html .= $description ? '<p class="description">'.$description.'</p>' : '';
+				// add row
+				$out .= 
+				'<tr class="trline tr_'.$key_name.'">
+				 <td>
+					<label for="search_hightlighting__tooltip_to_search">
+						'. $title .'
+					</label>
+				 </td>
+				 <td><fieldset>'.$input_html.'</fieldset></td>'.
+				 '</tr>';
+			}
+		}
+		if ($wrap_in_table) { $out .= '</tbody></table>'; }
+		if ($wrap_in_form) { $out .= $this->submit_button('SAVE SETTINGS', 'nonceKeyRand_'.$prefix, 'nonceActRand_'.$prefix) . '</form>'; }
+		echo $out;
+		return $existing_options_values;
+	}
+	#endregion ================= APP OPTIONS =================
+
+
+	/*
+    public function options_for_keys__helper($keyName, $include_type=''){
+        $array = [];
+        foreach($this->initial_user_options as $key=>$val)
+        {
+			if (!is_array($val))
+			{
+				if ( empty($keyName) ){
+					$array[$key]=$val;
+				} 
+				else if ( 
+					   ($include_type==""      && $this->helpers->contains($key, $keyName) )
+					|| ($include_type=="start" && $this->helpers->starts_with($key,$keyName))
+					|| ($include_type=="end"   && $this->helpers->ends_with($key,$keyName))
+				)
+				{
+					$array[$key]=$val;
+				}
+			}
+        }
+        return $array;
+    }
+    public function options_for_keys_table($keyName='', $include_type=''){
+		?><table class="form-table"><td colspan="100%"><h3>Options</h3></td><?php $this->options_for_keys_output();?></table><?php 
+	}
+    public function options_for_keys_output($keyName='', $include_type=''){
+		foreach ( $this->options_for_keys__helper($keyName,$include_type) as $key=>$val ) { 
+			$value   = $this->opt($key);
+			$is_bool = is_bool($value);  
+			?>
+			<tr class="def">
+				<td scope="row">
+					<code><?php echo $key;?></code>
+				</td>
+				<td scope="row">
+					<?php echo '<input name="'.$this->plugin_slug.'['.$key.']" '. ($is_bool ? 'type="checkbox" value="1" '. checked($value, true, false) : 'type="text" value="'. $value .'" />');?>
+				</td>
+			</tr>
+		<?php }
+	}
+    public function options_for_keys_update($keyName='', $include_type=''){
+		foreach ( $this->options_for_keys__helper($keyName,$include_type) as $key=>$val ) { 
+			$value   = $this->opt($key);
+			$is_bool = is_bool($value);
+			$this->opts[$key] = $is_bool ? isset($_POST[ $this->plugin_slug ][$key]) : sanitize_text_field( stripslashes($_POST[ $this->plugin_slug ][$key]) );   
+		}
+	}
+    public function opt($key) {  return isset($this->opts[$key]) ? $this->opts[$key] : ''; }
+	*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	// inject loader into wp_config : https://pastebin_com/zUTBWvpP
 
 	// https://wordpress.stackexchange.com/questions/16382/showing-errors-with-wpdb-update
@@ -2667,7 +2721,20 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	public function refresh_options(){
 		$this->opts	= $this->get_option_CHOSEN($this->slug, []);
 		if(!is_array($this->opts)) $this->opts = $this->initial_user_options;
-		foreach($this->initial_user_options as $name=>$value){ if (!array_key_exists($name, $this->opts)) { $this->opts[$name]=$value;  $should_update=true; }  }
+		foreach($this->initial_user_options as $name=>$block_or_value){
+			// new options format
+			if (is_array($block_or_value)){
+				if (!array_key_exists($name, $this->opts)) {
+					$this->opts[$name]=$block_or_value['value']; $should_update=true;
+				}
+			}
+			// support old format (will be deprecated)
+			else {
+				if (!array_key_exists($name, $this->opts)) {
+					$this->opts[$name]=$block_or_value;  $should_update=true;
+				}
+			}
+		}
 		$this->opts = array_merge($this->opts, $this->initial_static_options);
 		$this->opts['name']		=$this->static_settings['Name'];
 		$this->opts['title']	=$this->static_settings['Title'];
@@ -3003,54 +3070,6 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		}
 	}
 
-
-    public function options_for_keys__helper($keyName, $include_type=''){
-        $array = [];
-        foreach($this->initial_user_options as $key=>$val)
-        {
-			if (!is_array($val))
-			{
-				if ( empty($keyName) ){
-					$array[$key]=$val;
-				} 
-				else if ( 
-					   ($include_type==""      && $this->helpers->contains($key, $keyName) )
-					|| ($include_type=="start" && $this->helpers->starts_with($key,$keyName))
-					|| ($include_type=="end"   && $this->helpers->endsWith($key,$keyName))
-				)
-				{
-					$array[$key]=$val;
-				}
-			}
-        }
-        return $array;
-    }
-    public function options_for_keys_table($keyName='', $include_type=''){
-		?><table class="form-table"><td colspan="100%"><h3>Options</h3></td><?php $this->options_for_keys_output();?></table><?php 
-	}
-    public function options_for_keys_output($keyName='', $include_type=''){
-		foreach ( $this->options_for_keys__helper($keyName,$include_type) as $key=>$val ) { 
-			$value   = $this->opt($key);
-			$is_bool = is_bool($value);  
-			?>
-			<tr class="def">
-				<td scope="row">
-					<code><?php echo $key;?></code>
-				</td>
-				<td scope="row">
-					<?php echo '<input name="'.$this->plugin_slug.'['.$key.']" '. ($is_bool ? 'type="checkbox" value="1" '. checked($value, true, false) : 'type="text" value="'. $value .'" />');?>
-				</td>
-			</tr>
-		<?php }
-	}
-    public function options_for_keys_update($keyName='', $include_type=''){
-		foreach ( $this->options_for_keys__helper($keyName,$include_type) as $key=>$val ) { 
-			$value   = $this->opt($key);
-			$is_bool = is_bool($value);
-			$this->opts[$key] = $is_bool ? isset($_POST[ $this->plugin_slug ][$key]) : sanitize_text_field( stripslashes($_POST[ $this->plugin_slug ][$key]) );   
-		}
-	}
-    public function opt($key) {  return isset($this->opts[$key]) ? $this->opts[$key] : ''; }
 
 
 	// navigation menu nav menu hooks: pastebin_com/BcGsVpe9
