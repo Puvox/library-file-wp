@@ -2046,7 +2046,9 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 			// new options format
 			if (is_array($block_or_value)){
 				if (!array_key_exists($name, $this->opts)) {
-					$this->opts[$name]=$block_or_value['default']; $should_update=true;
+					if (array_key_exists('default', $block_or_value)){
+						$this->opts[$name]=$block_or_value['default']; $should_update=true;
+					}
 				}
 			}
 			// support old format (will be deprecated)
