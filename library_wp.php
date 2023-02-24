@@ -233,86 +233,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		} 
 	}
 
-	public function tinymce_buttons_body( )
-	{
-		if( ! isset($_GET['tinymce_buttons_'. $this->slug] ) ) return;
-		header("Content-type: application/javascript;  charset=utf-8");
-		?> 
-		<?php $random_name = "button_".rand(1,999999999).rand(1,999999999); ?>
-		"use strict";
-
-		(function ()
-		{
-			// Name the plugin anything we want
-			tinymce.create( 'tinymce.plugins.<?php echo esc_attr($random_name);?>',
-			{
-				init: function (ed, url)
-				{
-
-				<?php foreach ($this->tinymce_buttons as $each_button ) { ?>
-					// The button name should be the same as used in PHP function of WP
-					ed.addButton( '<?php echo esc_attr($each_button["button_name"]);?>',
-					{
-						// Title of button
-						title: '<?php echo esc_attr($each_button["shortcode"]);?>',
-						// icon url of button
-						image: '<?php echo esc_attr($each_button["icon"]);?>', //url +
-						// Onclick action onto button
-						onclick: function ()
-						{
-							// Create shortcode string, with default values
-							var val = '<?php echo $this->shortcode_example($each_button["shortcode"], $each_button["default_atts"]);?>';
-							// Insert shortcode in text-editor
-							ed.execCommand( 'mceInsertContent', false, val );
-
-							//var newtex= prompt("Audio link", ""); if (null == newtex) {return;}
-							//var gotted= tinyMCE.activeEditor.selection.getContent({format : 'raw'})
-								//var newtex= gotted.replace(/<br \/>/g,'');
-								//	newtex= newtex.replace(/\r\n/g,'');
-								//	newtex= newtex.replace(/\n/g,'');
-								//ed.execCommand('mceInsertContent', false, newtex);
-						}
-					});
-				<?php } ?>
-
-
-				},
-				createControl: function (n, cm) {
-					return null;
-				}
-
-			});
-
-			// first parameter	- the same name as defined in PHP function of WP
-			// second parameter	- the module name (as defined a bit above)
-			tinymce.PluginManager.add( '<?php echo "button_handle_" . $this->slug;?>', tinymce.plugins.<?php echo $random_name;?> );
-
-		})();
-		//</script>
-		<?php
-		exit;
-	}
-
-	public function tinymce_enable_media_button(){
-		add_filter( 'mce_buttons',	function ( $button_names ) { $button_names[]='wp_add_media';  return $button_names; } );
-	}
-				
-	public function tinymce_remove_buttons($buttons){
-		//add_filter( 'mce_buttons',	function ( $button_names ) {  return array_diff( $button_names, $buttons ); } ); 
-		//'strikethrough','hr','forecolor','pastetext','removeformat','charmap','outdent','indent','undo','redo','wp_help'
-		//add_filter( 'mce_buttons_2',	function ( $button_names ) {  return array_diff( $button_names, $buttons ); } ); 
-	}
-			//if ($GLOBALS['current_screen']->post_type==$post_type) { 
-    public function tinymce_enable_remove_media_button()
-    {
-		add_action('admin_head', function() { remove_action('media_buttons', 'media_buttons'); });
-	}
-	//other mods: https://developer.wordpress.org/reference/functions/wp_tinymce_inline_scripts/
-	// =========================== TinyMce ================================ //
- 
-	// set desired number of revisions
-	//add_filter( 'wp_revisions_to_keep', function($num,$post){return (defined("POSTS_REVISION_NUMBERS") ? POSTS_REVISION_NUMBERS : 3) ; }  , 10, 2 );
-
 	public function compress_php_header($isWP=false)
 	{
 		ob_start('ob_gzhandler');	//similar as: ini_set('zlib.output_compression', '1');
@@ -322,61 +242,24 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		}
 	}
 
-	
-	public function remove_admin_bar($from_backend_too=true)
-	{
-		add_action('init', function() use ($from_backend_too) {
-			if ($this->is_administrator()) return;
-			//remove admin bar from FRONTEND 
-			add_filter('show_admin_bar', '__return_false');	//show_admin_bar(false);
-			//remove admin bar from BACKEND
-			if ($from_backend_too)
-			{
-				add_filter( 'admin_title', function(){ $GLOBALS['wp_query']->is_embed=true;  add_action('admin_xml_ns', function(){ $GLOBALS['wp_query']->is_embed=false; } ); } );
-				remove_action( 'in_admin_header', 'wp_admin_bar_render', 0 );
-			}
-		});
-	}
-	
-
 	//add_action( 'pre_get_posts', 'querymodify_2322',77); 
-	public function querymodify_2322($query) { $q=$query;
-		if( $q->is_main_query() && !is_admin() ) {
-			if($q->is_home){
-				$q->init();			
-				$q->set('post_type',LNG);
-				$q->set('category__not_in', 64);
-				$q->set_query_vars('category__not_in',array(64)  );
-			}
-		}
-		return $q;
-	}
-
-	// Register Custom Post 	
-	public function register_post_type($name, $title='', $thumb='') {
-		// https://codex.wordpress.org/Function_Reference/register_post_type 
-		add_action('init', function() use ($name, $title)  {
-			$title = !empty($title) ? $title : strtoupper($name);
-			register_post_type( $name, [
-				'label'	=> __( $title ),	'description' => __( $name.'s'),
-				'labels'=> ['name' => $name, 'singular_name' => $name.' '.'page'],
-				'supports'	=> ['title','editor', 'thumbnail', 'excerpt', 'page-attributes', 'post_tag', 'revisions','comments','post-formats'],
-				'taxonomies'=> ['category', 'post_tag'],  
-				'public'=> true,	'query_var'=> true,				'publicly_queryable'=>true,	'show_ui'=> true,	'show_in_menu'	=> true,
-				'show_in_nav_menus'	=> true,	'show_in_admin_bar'	=> true,	'menu_position'	=> 18,
-				'can_export' => true, 'hierarchical' => true, 'has_archive'=> true, 'menu_icon' => 'dashicons-editor-spellcheck', // https://developer.wordpress.org/resource/dashicons/#editor-spellcheck
-				'exclude_from_search' => false,	'capability_type'=> 'page',
-				'rewrite' => array('with_front'=>true,   ), 
-			] );
-		}); 
-	}
+	// public function querymodify_2322($query) { $q=$query;
+	// 	if( $q->is_main_query() && !is_admin() ) {
+	// 		if($q->is_home){
+	// 			$q->init();			
+	// 			$q->set('post_type',LNG);
+	// 			$q->set('category__not_in', 64);
+	// 			$q->set_query_vars('category__not_in',array(64)  );
+	// 		}
+	// 	}
+	// 	return $q;
+	// }
 
 	public function referrer_is_external_domain()
 	{
 		return $this->get_domain(wp_get_referer()) !== $this->get_domain(home_url());
 	}
-	
-	
+
 	public function inprogress_flag_cache($flagname, $max_seconds=999999999){
 		$flagname_final = "inprogress_$flagname";
 		$start_time = $this->cache_get($flagname_final,null);
@@ -688,6 +571,19 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	}
 	
 
+
+	public function output_js_categories_ids()
+	{
+		if( ! ($out = get_transient('termids_for_js'))) {
+			$terms= get_terms();
+			foreach($terms as $term){
+				$cats[$term->term_id] = urldecode($term->slug);
+			}
+			$out = json_encode($cats, JSON_UNESCAPED_UNICODE);
+			set_transient('termids_for_js', $out , 60*60);
+		}
+		echo "<script>cat_term_ids = $out;</script>";	
+	}
 	
 	// ==================== shortcodes =======================
 	public function shortcode_atts($shortcode, $predefined_atts, $passed_atts){
@@ -1662,9 +1558,11 @@ if (!class_exists('\\Puvox\\library_wp')) {
 					$input_html .= '</div>';
 				}
 				$input_html .= $description ? '<p class="description">'.$description.'</p>' : '';
+				
+				$tr_style = $this->array_value ($block, 'transparent_bottom', false) ? 'border-bottom:1px solid transparent;' : '';
 				// add row
 				$out .= 
-				'<tr class="tr_line tr_'.$key_name.'">'.
+				'<tr class="tr_line tr_'.$key_name.'" style="'.$tr_style.'">'.
 					'<td class="td_first_col" style="min-width:200px;">'.
 						'<label for="search_hightlighting__tooltip_to_search">'.
 							$title .
@@ -1702,6 +1600,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	public static function remove_query_arg_esc($param, $val = false){
 		return esc_url(self::remove_query_arg($param, $val));
 	}
+
 
 	// add widgets: https://pastebin_com/VzDQgJrF
 
@@ -1917,13 +1816,33 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		if(method_exists($this,'declare_settings') ) 
 		{
 			$this->declare_settings();
+			$this->check_plugin_readme_generate();
 		}
 		$temp1= []; //remove sample plugin
 		$this->initial_static_options = array_replace_recursive($temp1, $this->initial_static_options);
 		$this->static_settings	= array_replace_recursive($temp2,$this->initial_static_options);
 	}
 
- 
+	public function check_plugin_readme_generate(){
+		add_action('init', function(){
+			if ($this->is_administrator()) {
+				if (isset($_GET['generate_options_for_readme'])) {
+					$readme = '';
+					foreach ($this->initial_user_options as $key => $value) {
+						$title = $this->helpers->array_value ($value, 'title');
+						$description = $this->helpers->array_value ($value, 'description');
+						if ($title) {
+							$readme .= (empty($readme) ? '': "\r\n") ."* " . $title;
+						}
+						if ($description) {
+							$readme .= " ::: " . $description;
+						}
+					}
+					exit('<pre>`'.$readme.'`</pre>');
+				}
+			}
+		});
+	}
 
 	public function plugin__setup_links_and_menus()
 	{
@@ -2312,6 +2231,10 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	  );
 	}
 		
+
+	public function homeurl(){
+		return $this->helpers::slash_trailing (home_url());
+	}
 
 
 	public function paypal_donation_button(){ return '<a class="button" style="display:inline-block; line-height:1em; min-height:25px; color:#179bd7; " href="javascript:tt_donate_trigger(event);" onclick="tt_donate_trigger(event);"/> <img style="height:20px; vertical-align:middle;" src="'.  $this->helpers->image_svg("paypal") .'" /> '. __("donation") .'</a>'; }
@@ -3263,6 +3186,18 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		};
 		</script>
 		<?php
+	}
+
+	public function init__disableupdate() 
+	{
+		add_filter('site_transient_update_plugins', function ($value) { 
+			if (isset($value)) {
+				if ( isset($value->response[$name=plugin_basename($this->baseFILE)]) ) {
+					unset($value->response[$name]);
+				} 
+			} 
+			return $value; 
+		});
 	}
 
 	#region ==== PRO PLUGIN - PARTS ====
