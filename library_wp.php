@@ -1834,7 +1834,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 						if ($title) {
 							$readme .= (empty($readme) ? '': "\r\n") ."* " . $title;
 						}
-						if ($description) {
+						if ($description && isset($_GET['description'])) {
 							$readme .= " ::: " . $description;
 						}
 					}
