@@ -1,8 +1,8 @@
 <?php
 /**
  *   ################################################################################
- *   ##############################  Our PHP Library   ##############################
- *   ##### Here we collect frequently used methods across our PHP applications. #####
+ *   ##############################  Our WP Library   ##############################
+ *   ##### Here we collect frequently used methods across our WP applications. #####
  *   ################################################################################
  *
  *   ### Example usage: ###
@@ -68,8 +68,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 
 	public function load_scripts_styles()
 	{
-		add_action( 'admin_head', function (){ if ($this->property('admin_styles')) echo ' <style type="text/css">'.$this->admin_styles.'</style>'; } );
-
 		//load desired scripts 
 		add_action( 'wp_enqueue_scripts', 		[$this, 'my_styles_hook'], 9); 
 		add_action( 'admin_enqueue_scripts',	[$this, 'my_styles_hook'], 9);  
@@ -77,13 +75,10 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	
 	public function init_properties()
 	{
-		if ($this->property('auth_expiration_hours'))	 	$this->init__cookieexpiration();
-		if ($this->property('navmenu_search_items'))		$this->init__quicksearch();
 		if ($this->property('extend_shortcodes')) 			$this->extend_shortcodes();
 		if ($this->property('posts_per_page')) 				$this->init__postsperpage($this->posts_per_page); 
 		// This is not enabled, unless user explicitly enables it during tests!!! IT IS NOWHERE ENABLED, UNLESS YOU INSERT IN CODE YOURSELF. so, don't fear.
 		if ($this->property("enable_write_logs"))			$this->save_logs( $this->baseDIR  .'/___logs_' ); 
-		if ($this->property('disable_update'))				$this->init__disableupdate();
 	}
 	
 	//when is_admin or when page is unknown (for example, custom page or "wp-login.php" or etc... )
@@ -109,12 +104,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		return false;
 	}
 
-	public function init__disableupdate() 
-	{
-		add_filter('site_transient_update_plugins', function ($value) { if (isset($value)) { if ( isset($value->response[$name=plugin_basename($this->baseFILE)]) ) { unset($value->response[$name]); } } return $value; });
-	}
-
-
 	//Get Blog slug, i.e. "subdir"  from "http://example.com/subdir/"
 	public function get_blog_name(){
 		if(is_multisite())
@@ -133,28 +122,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		}
 		return false;
 	}
-
-	public function sql_results_to_array($tableName, $first_key, $second_key=false, $data_key=false)
-	{ 
-		$array=$this->object_to_array( $this->get_table_my($tableName) );
-
-		$new_array=[];
-		foreach($array as $id=>$block)
-		{
-			if(array_key_exists($first_key, $block))
-			{
-				if ($second_key)
-				{
-					if(array_key_exists($second_key, $block))
-						$new_array[$block[$first_key]][$block[$second_key]] = $data_key ? json_decode($block[$data_key]) : $block;
-				}
-				else
-					$new_array[$block[$first_key]] = $data_key ? json_decode($block[$data_key]) : $block;
-			}
-		}
-		return $new_array;
-	}
-
 
 	public function get_locale_sanitized(){
 		return ( get_locale() ? "en" : preg_replace('/_(.*)/','',get_locale()) ); //i.e. 'en'
@@ -270,28 +237,26 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	{
 		if( ! isset($_GET['tinymce_buttons_'. $this->slug] ) ) return;
 		header("Content-type: application/javascript;  charset=utf-8");
-		?>
-		// ************ these useful scripts got from: https://github.com/ttodua/useful-javascript/   **********
-		// "<script>"  dont remove this line,,, because, now JAVSCRIPT highlighting started in text-editor
+		?> 
 		<?php $random_name = "button_".rand(1,999999999).rand(1,999999999); ?>
 		"use strict";
 
 		(function ()
 		{
 			// Name the plugin anything we want
-			tinymce.create( 'tinymce.plugins.<?php echo $random_name;?>',
+			tinymce.create( 'tinymce.plugins.<?php echo esc_attr($random_name);?>',
 			{
 				init: function (ed, url)
 				{
 
 				<?php foreach ($this->tinymce_buttons as $each_button ) { ?>
 					// The button name should be the same as used in PHP function of WP
-					ed.addButton( '<?php echo $each_button["button_name"];?>',
+					ed.addButton( '<?php echo esc_attr($each_button["button_name"]);?>',
 					{
 						// Title of button
-						title: '<?php echo $each_button["shortcode"];?>',
+						title: '<?php echo esc_attr($each_button["shortcode"]);?>',
 						// icon url of button
-						image: '<?php echo $each_button["icon"];?>', //url +
+						image: '<?php echo esc_attr($each_button["icon"]);?>', //url +
 						// Onclick action onto button
 						onclick: function ()
 						{
@@ -405,114 +370,11 @@ if (!class_exists('\\Puvox\\library_wp')) {
 			] );
 		}); 
 	}
-	//add_action('init', 'my_custom_init');  function my_custom_init() { add_post_type_support( 'page', 'excerpt' ); }
 
-
-	// increase filtering quick-menu-search results (this seems better than other a bit harder methods, like: https://goo.gl/BWMmDp )
-	public function init__quicksearch($amount=30) { $this->navmenu_search_items=$amount; add_action( 'pre_get_posts', [$this, 'my_filter_quicksearch'], 10, 2 );  }
-	public function my_filter_quicksearch( $q ) {
-		// example of $q properties: https://goo.gl/SNeDwX
-		if(isset($_POST['action']) && $_POST['action']=="menu-quick-search" && isset($_POST['menu-settings-column-nonce'])){	
-			// other parameters for more refinement: https://goo.gl/m2NFCr
-			if( is_a($q->query_vars['walker'], 'Walker_Nav_Menu_Checklist') ){
-				$q->query_vars['posts_per_page'] = $this->navmenu_search_items;
-			}
-		}
-		return $q;
-	}
-
-
-	public function init__postsperpage($amount=30) {  $this->posts_per_page=$amount;  add_action( 'pre_get_posts', [$this,'wpsites_query'], 15);  }
-	public function wpsites_query( $query ) {
-		if ( !is_admin() && $query->is_archive && $query->is_main_query() ) {
-			$query->set( 'posts_per_page', $this->posts_per_page );
-		}
-	} 
-
-	//  add_action( 'admin_init', 'allow_editor_increased_access');
-	// https://codex.wordpress.org/Roles_and_Capabilities#edit_theme_options
-	public function allow_editor_increased_access(){
-		$role_object = get_role( 'editor' );
-		if(empty($role_object )) return;
-		$role_object->add_cap( 'edit_theme_options' );
-		$role_object->add_cap( 'update_core' );
-		$role_object->add_cap( 'update_themes' );
-		$role_object->add_cap( 'switch_themes' );
-		$role_object->add_cap( 'delete_themes' );
-		$role_object->add_cap( 'delete_plugins' );
-		$role_object->add_cap( 'update_plugins' );
-		//$role_object->add_cap( 'create_users' );  // will access ADMIN!
-		//$role_object->add_cap( 'edit_users' );  // will access ADMIN!
-		//$role_object->add_cap( 'delete_users' );
-		$role_object->add_cap( 'remove_users' );
-		$role_object->add_cap( 'list_users' );
-		$role_object->add_cap( 'edit_files' );
-		$role_object->add_cap( 'edit_dashboard' );
-		// CAREFULL !
-		//$role_object->add_cap( 'manage_options' );
-	}
-
- 
-	//add_filter('excerpt_more', 'excerpt_more_func');   public function excerpt_more_func($more) {	return ' <a class="read-more" href="'. get_permalink(get_the_ID()) . '"> (Continue Reading)</a>';}
-	//add_filter('excerpt_length', 'excerpt_length_func');   public function excerpt_length_func() {    return 25;} 
-
-	public function noindex_pagesss() {
-		if ( !is_404() && !is_page() && !is_single() && !is_search() && !is_archive() && !is_admin() && !is_attachment() && !is_author() && !is_category() && !is_front_page() && !is_home() && !is_preview() && !is_tag())  { echo '<meta name="robots" content="noindex, nofollow"><!-- by MLSS -->'; }
-	}
-
-	// remove category base: pastebin_com/raw/YpV0wp27
-	
 	public function referrer_is_external_domain()
 	{
 		return $this->get_domain(wp_get_referer()) !== $this->get_domain(home_url());
 	}
-	
-	//add_action( 'after_setup_theme', 'theme_supportss' );  
-	public function add_theme_supports(){
-		// https://codex.wordpress.org/Function_Reference/add_theme_support#HTML5
-		//remove_theme_support( 'custom-header' ); 
-		add_theme_support('menus');			// Add support for:		menus
-		add_theme_support('title-tag');   	// Add support for:		titles
-		add_theme_support('editor-style');	// Editor Styles
-		add_editor_style();
-		add_theme_support( 'post-thumbnails');	// Enable Thumbnails for Feature Images 
-		set_post_thumbnail_size( 200, 150 );
-		add_image_size('my-small-thumbnail', 150, 150, true);
-		add_image_size('my-medium-thumbnail', 650, 150, true);
-		// Translation Ready
-				//load_theme_textdomain( 'my', get_template_directory() . '/languages' );
-		//add_theme_support('automatic-feed-links');	// Add default posts and comments RRS feeds links to the head.
-		add_theme_support( 'html5', ['search-form'] );//Suppot HTML5 Search Form
-		//load_theme_textdomain( 'my', get_template_directory() . '/languages' );
-	}
-
-	public function add_zip_mime_types () {
-		add_filter('upload_mimes', function($existing_mimes){
-			// add your extension to the mimes array as below
-			$existing_mimes['zip']	= 'application/zip';
-			$existing_mimes['gz']	= 'application/x-gzip';
-			$existing_mimes['txt']	= 'text/plain'; 
-			
-			if (!array_key_exists('zip', $existing_mimes)) $existing_mimes['zip'] = 'application/zip';  
-			if (!array_key_exists('gz|gzip|zip', $existing_mimes)) $existing_mimes['gz|gzip|zip'] = 'application/x-zip'; 
-			//	['gz|gzip'] => application/x-gzip
-			//	[rar] => application/rar
-			//	[7z] => application/x-7z-compressed
-			return $existing_mimes;
-		}, 99);
-
-		add_filter( 'wp_check_filetype_and_ext', function ( $types, $file, $filename, $mimes ) {
-			// Do basic extension validation and MIME mapping
-			$wp_filetype = wp_check_filetype( $filename, $mimes );
-			if( in_array( $wp_filetype['ext'], array( 'zip', 'gz', 'txt' ) ) ) { // it allows zip files
-				$types['ext']  = $wp_filetype['ext'];
-				$types['type'] = $wp_filetype['type'];
-			}
-			return $types;
-		}, 99, 4 );
-	}
-	
-
 	
 	
 	public function inprogress_flag_cache($flagname, $max_seconds=999999999){
@@ -551,33 +413,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		}
 	}
 
-
-	/*
- 
-		//		wp_register_script( 'jquery', false, array( 'jquery-core', 'jquery-migrate' ), '1.11.0' );
-		//		wp_register_script( 'jquery-core', '/wp-includes/js/jquery/jquery.js', false, '1.11.0' ); 
-				//force to load my JQUERY
-				$registered	= wp_script_is( $name, 'registered' );
-				$enqueued	= wp_script_is( $name, 'enqueued' );
-				if (!$registered)	{ 
-					if(!empty($GLOBALS['odd']['scripts'][$name]['js'])) {
-						wp_register_script($name, $GLOBALS['odd']['scripts'][$name]['js'], 	array(), $this->changeable_JS_CSS_version, false );	
-					}
-					if(!empty($GLOBALS['odd']['scripts'][$name]['css'])) {
-						wp_register_style( $name, $GLOBALS['odd']['scripts'][$name]['css'],	array(), $this->changeable_JS_CSS_version, false );	
-					}
-				}
-				if (!$enqueued)		{
-					if(!empty($GLOBALS['odd']['scripts'][$name]['js'])) {
-						wp_enqueue_script( $name );
-					}
-					if(!empty($GLOBALS['odd']['scripts'][$name]['css'])) {
-						wp_enqueue_style	( $name );
-					}
-				} 
-	*/
-
-
 	public function register_stylescript($admin_or_wp, $type, $handle=false, $url=false, $dependant=null, $version=false, $target=false)
 	{
 		add_action( $admin_or_wp.'_enqueue_scripts',	function() use($type, $handle, $url, $dependant, $version, $target) {
@@ -600,15 +435,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		}
 	}
 
-	public function deregister_jquery_scripts($admin_or_public=true, $jquery_too=false)
-	{
-		add_action( ($admin_or_public ? 'admin':'wp').'_enqueue_scripts', function () use($jquery_too) {
-			foreach([
-				"jquery-ui-widget", "jquery-ui-mouse", "jquery-ui-accordion", "jquery-ui-autocomplete", "jquery-ui-slider", "jquery-ui-tabs",  "jquery-ui-draggable", "jquery-ui-droppable", "jquery-ui-selectable", "jquery-ui-position", "jquery-ui-datepicker", "jquery-ui-resizable", "jquery-ui-dialog", "jquery-ui-button", ($jquery_too ?'jquery':'') 
-			] as $script) wp_deregister_script($script); 
-		});
-	}
-
 	//if used earlier than INIT 
 	public function get_permalink_before_init($post=false){
 		global $wp_rewrite;	
@@ -623,24 +449,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		return  $link;
 	}
 
-	//add_filter('the_content', 'empty_div_add');
-	public function empty_div_add($content) {
-		if (defined('IS_SINGLEE') && IS_SINGLEE){ $content = '<div class="bef_cont_div"></div><div class="cont_div">'.$content.'</div><div class="aft_cont_div"></div>'; } 
-		return $content;
-	}
-
-
-	public function redirect_to_homefolder($site_slug= "geo")
-	{
-		// redirect to /GEO
-		$redirect_lang = 1;
-		if ($redirect_lang)
-			if (!is_admin())
-				if( stripos($this->currentURL,"/$site_slug/")===false && stripos($this->currentURL,'/wp-login')===false  && stripos($this->currentURL,'/wp-admin')===false   )
-					$this->php_redirect( str_replace($this->domain, $this->domain."/$site_slug/",  $this->currentURL));
-	}
-
- 
 	public function get_parent_slugs_path($post){
 		$final_SLUGG = '';
 		if (!empty($post->post_parent)){
@@ -671,15 +479,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		return $output;
 	}
 
-
-	public function wp_mails_init()
-	{
-		add_filter( 'wp_mail_from',			function( $email ) { return 'contact@'.$_SERVER['HTTP_HOST']; } );
-		add_filter( 'wp_mail_from_name',	function( $name ) { return 'WordPress Email System'; } );
-		add_filter( 'wp_mail_content_type', function($cotnent_type=false){ return "text/html"; } ) ;
-		// $headers = array('Content-Type: text/html; charset=UTF-8')
-	}
-
 	public function recount_categories($tax_name='category')
 	{
 		$terms_ids = get_terms( ['taxonomy' => $tax_name, 'fields' => 'ids','hide_empty' => false]);
@@ -695,8 +494,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		return $randoms[$name];
 	}
 
-
- 
 	// https://pastebin_com/sPb1qvJ0
 	public function delete_transients_by_prefix($myPrefix, $table_name, $column_name, $prefix=false){
 		global $wpdb;
@@ -704,21 +501,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		$sql = $wpdb->prepare("delete from %s where %s like '%s' or %s like '%s'", $table_name, $column_name, '%_transient_$myPrefix%', $column_name, "%_transient_timeout_$myPrefix%" );
 		return $wpdb->query($sql);
 	}
-
-	// add tinymce styles
-	public function add_tinymce_styles($styles){ add_filter( 'tiny_mce_before_init', function($settings) use($styles) { return $this->wptrac_36636_editor_inline_style22($settings, $styles); } );  }
-	public function wptrac_36636_editor_inline_style22( $settings, $styles) {$settings['content_style'] = (!empty($settings['content_style']) ? $settings['content_style'] : '') . (!empty($styles) ? addslashes($styles) : ''); return $settings;}
-	//add_action( 'after_setup_theme', 'my_theme_add_editor_styles' );
-	public function my_theme_add_editor_styles() {
-		add_editor_style( PHP_customCALL_1.'tinymce_styles&ver='.$this->changeable_JS_CSS_version );
-	}
-	//if ( $act=='tinymce_styles'){ header('Content-Type: text/css');  echo '	.anons_of{background: gray;} html .mceContentBody { max-width:100%;}'; exit; }
-
-
-
-
-
-
 
 	// NONCES
 	public function default_nonce_action($actionName=null){ return ($actionName!=null? $actionName :  "_nonceAction"."_".$this->slug); }
@@ -741,8 +523,8 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	}
 	public function nonceSubmit($text=null, $action=null, $slug=null, $centeredFloat=false, $echo=true)
 	{
-		$x = $this->submit_button($text, $action, $slug, $centeredFloat);
-		if ($echo) echo $x; else return $x;
+		$btn = $this->submit_button($text, $action, $slug, $centeredFloat);
+		if ($echo) echo $btn; else return $btn;
 	}
 	public function submit_button($text=null, $action=null, $slug=null, $centeredFloat=false, $echo=false)
 	{
@@ -799,10 +581,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	public function ajax_backend_call_nopriv(){
 		
 	}
-	
 
-
-	
 	
 	public function unzip_url($url, $where)
 	{
@@ -869,45 +648,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		return $new;
 	}
 	
-	
-	//disable emojis
-	public function disable_emojicons()
-	{
-		add_action( 'init', function () {
-		  // all actions related to emojis
-		  remove_action( 'admin_print_styles', 'print_emoji_styles' );
-		  remove_action( 'wp_head', 'print_emoji_detection_script', 7 );
-		  remove_action( 'admin_print_scripts', 'print_emoji_detection_script' );
-		  remove_action( 'wp_print_styles', 'print_emoji_styles' );
-		  remove_filter( 'wp_mail', 'wp_staticize_emoji_for_email' );
-		  remove_filter( 'the_content_feed', 'wp_staticize_emoji' );
-		  remove_filter( 'comment_text_rss', 'wp_staticize_emoji' );
-		} );
-
-		//to remove emojis from TinyMCE
-		add_filter( 'tiny_mce_plugins', function ( $plugins ) {
-		  if ( is_array( $plugins ) ) {  return array_diff( $plugins, array( 'wpemoji' ) );} 
-		  else { return array(); }
-		} );
-	}
-
-	//add_action( 'admin_init', 'theme_options_init' );
-	public function theme_options_init(){	 
-		// https://codex.wordpress.org/Function_Reference/add_settings_field#Examples
-		add_settings_field( 'myprefix_setting-id', 'This is the setting title', 'myprefix_setting_callback_function', 'general', 'myprefix_settings-section-name', array( 'label_for' => 'myprefix_setting-id' ) );
-		
-		// https://codex.wordpress.org/Function_Reference/add_settings_section#Notes
-		add_settings_section('eg_setting_section',	'Example settings in reading',		'funcXXXX',		'reading');
-		function funcXXXX( $arg ) {
-			// echo section intro text here
-			echo '<p>id: ' . $arg['id'] . '</p>';             // id: eg_setting_section
-			echo '<p>title: ' . $arg['title'] . '</p>';       // title: Example settings section in reading
-			echo '<p>callback: ' . $arg['callback'] . '</p>'; // callback: eg_setting_section_callback_function
-		}
-		//register_setting( 'bbbbbla', 'sample_theme_options');
-	}
-	
-
 	public function shortcode_handler_old($atts, $content=false){
 		$d=debug_backtrace()[0];
 		if(!empty($d['args']))
@@ -930,18 +670,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 				}
 			}
 		}, 1);
-	}
-	
-	
-    public function jquery_restore_in_header_scripts() { 
-		add_action('admin_head',function(){ echo '<script>$=jQuery;</script>'; });
-		add_action('wp_head',	function(){ echo '<script>$=jQuery;</script>'; });
-	}
-
-	public function disable_update_email_notifications(){
-		add_filter( 'auto_core_update_send_email', function ( $send, $type, $core_update, $result ) { return ( ! empty( $type ) && $type == 'success'  ? false : true); }, 10, 4 );
-		add_filter( 'auto_plugin_update_send_email', '__return_false' );
-		add_filter( 'auto_theme_update_send_email', '__return_false' );
 	}
 
 	// ================ flash rules ================= // 
@@ -1002,7 +730,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 			<?php _e('Note, you can always use programatical approach using:'); ?> 
 			<br/> <code>&lt;?php echo do_shortcode('[.....]'); ?&gt;</code>
 			<br/> or 
-			<br/> <code>&lt;?php if (function_exists('<?php echo $name;?>'))		{ echo <?php echo $name;?>(["arg1"=>"value1", ...]); } ?&gt;</code>
+			<br/> <code>&lt;?php if (function_exists('<?php echo esc_attr($name);?>'))		{ echo <?php echo esc_attr($name);?>(["arg1"=>"value1", ...]); } ?&gt;</code>
 		</div>
 		<?php
 	}
@@ -1056,7 +784,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 				foreach($array['atts'] as $key=>$value)
 				{ ?>
 				<tr>
-					<td><code><?php echo htmlentities($value[0]);?></code></td><td><code><?php echo htmlentities($this->truefalse_to_string($value[1]));?></code></td><td><?php echo $value[2];?></td>
+					<td><code><?php echo htmlentities($value[0]);?></code></td><td><code><?php echo htmlentities($this->truefalse_to_string($value[1]));?></code></td><td><?php echo wp_kses_post($value[2]);?></td><?php //todo :kses ?>
 				</tr>
 				<?php 
 				}
@@ -1069,200 +797,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		<?php
 	}
 	
-	public function extend_shortcodes(){
-		add_shortcode ('date_day', function(){ return date_i18n ('l'); } );
-		add_shortcode ('date_month', function(){ return date_i18n ('F'); } );
-		add_shortcode ('date_year', function(){ return date_i18n ('Y'); } );
-		add_shortcode ('date_ymd', function(){ return date_i18n ('y-m-d'); } );
-
-		add_shortcode('image', function ($atts){ 	$GLOBALS['CategImgggg'] = $atts['url'];
-			return '<div class="ImgShortcodeHolder"><img src="'.$atts['url'].'" alt="'.(!empty($atts['title']) ? $atts['title'] : basename($atts['url']) ).'" class="ShortcImageee" /></div>';
-		}); 
-		add_shortcode('link', function ($atts){
-			return '<a href="'.basename($atts['url']).'" class="ShortcLinkk" target="_blank" />'.(!empty($atts['title']) ? $atts['title'] : basename($atts['url']) ).'</a>';
-		} ); 
-
-		add_shortcode('iframe', function ($atts){ 
-			return '<div class="IframeHolder ifr_'.(!empty($atts['class']) ? $atts['class'] : 'defclass' ).'"><iframe src="'.$atts['url'].'"></iframe></div>';
-		} ); 
-		add_shortcode('@', function ($atts){ 
-			return '&#64;';
-		} );
-		
-		add_shortcode('script', function ($atts, $content=false){
-			$cont= urldecode(  $content ? $content : $atts['content'] ); 
-			return '<span class="cont_script '.(strpos($cont,'<iframe ')!== false  ?  'contains_frame':'') .'">'.$cont.'</span>';
-		} ); 
-
-		add_shortcode('list_subpages', function ($atts){ $out = ''; 
-			if (IS_SINGULARR){
-				$id= $GLOBALS['post']->ID;
-				$args = array(
-					'authors'=>'',  'child_of'=>$id,   'date_format'=>get_option('date_format'), 'depth'=> 0, 'echo'=>0,'exclude'=>'','include'=>'',
-					'link_after'=>'',   'link_before'=>'',  'post_type'=>'page',  'post_status'=>'publish',  'show_date'=>'',  
-					'sort_column'=> 'post_date', //'menu_order, post_title',
-					'sort_order'=> '',  'title_li'=> __(''),   //'walker'       => new Walker_Page
-				);
-				$out = wp_list_pages( $args );
-			}
-			return '<div class="my_subpagelistt">'.$out.'</div>';
-		} ); 
-
-
-		add_shortcode( 'Youtube', function ($atts){
-			$idd = get_youtube_id_from_contents($atts['url']);
-			return '<div style="clear:both;"></div><div class="ytframe_parent"><iframe class="ytb_framee"  src="https://www.youtube.com/embed/'.$idd.'?rel=0" frameborder="0" allowfullscreen></iframe><div style="clear:both;"></div></div>';
-		} );
-
-		add_shortcode('video', function ($atts){ 
-			$url	= $atts['url'];
-			$player = !empty($atts['player']) ? $atts['player'] : 1;
-			
-			if ($player==1) { $out = 
-				'<style type="text/css">body .video-js .vjs-tech {position:relative;} body #my-video{width: 80%; margin: 0 0 0 10%;} body .video-js .vjs-big-play-button{left: 45%; top:45%;}</style> 
-				<video id="my-video" class="video-js" controls preload="auto" width="640" height="264"
-				poster="" data-setup="{}">
-				<source src="'.$url.'" type="video/mp4">
-				<p class="vjs-no-js">To view this video please enable JavaScript, and consider upgrading to a web browser that <a href="https://videojs.com/html5-video-support/" target="_blank">supports HTML5 video</a></p>
-				</video>';
-			}
-			elseif ($player==2) { $out = '<video width="'. (!empty($atts['width']) ? $atts['width'] : 480) . '" height="'. (!empty($atts['width']) ? $atts['width'] : 320) . '" controls="controls" preload="auto" poster="#"> <source src="'.$url.'" type="video/mp4" /> </video>';}
-			else {$out='';}
-			
-			return '<div class="VidShortcodeHolder">'.$out.'</div>';
-		} ); 
-		
-		add_shortcode('childpages', function($atts) { 
-			global $post; 
-			$childpages = wp_list_pages( 'sort_column=menu_order&title_li=&child_of='.$post->ID.'&echo=0&depth=1' );
-			if ( $childpages ) {
-				$string = '<ul class="child_page_list">' . $childpages . '</ul>';
-			}
-			return $string;
-		});
-
-		// i.e. [list type="categories"	id="32" depth=0 exclude="4,28"] 
-		// i.e. [list type="pages"		id="32" depth=0 exclude="4,28"]    (or id="this")
-		// i.e. [list type="menu" id="32"]
-		add_shortcode( 'list',  function ($atts){
-			global $post;
-			$TYPEE	= !empty($atts['type'])	? $atts['type']	: '';  if(empty($TYPEE)) { return 'error2229.  please, set "type" parameter' ;  }
-			$args	= $atts;
-
-			if ( 'pages' == $TYPEE){
-				// https://codex.wordpress.org/Function_Reference/wp_list_pages   //authors,child_of,date_format,depth,echo,exclude,include,link_after,link_before,post_type,post_status,show_date,sort_column,sort_order,title_li,
-						if (empty($args['sort_column'])){$args['sort_column']= 'post_date';}
-						//when ESSENTIAL parameters are not set
-						if (empty($args['child_of']))	{ return 'error494__set child_of parameter for listed ' .$TYPEE;}
-							elseif ($args['child_of']=='this') { $args['child_of']= $post->ID;}
-						if (empty($args['depth']) )		{ $args['depth']= 1;}
-						if (empty($args['echo']) )		{ $args['echo']	= 0;}
-						if (empty($args['title_li']) )	{ $args['title_li']	= "";}
-						if (empty($args['post_type']))	{ $args['post_type']=$post->post_type;} 
-				$X= wp_list_pages($args);
-			}
-			
-			elseif ( 'categories' == $TYPEE){
-				// https://codex.wordpress.org/Function_Reference/wp_list_categories //show_option_all,orderby,order,style,show_count,hide_empty,use_desc_for_title,child_of,feed,feed_type,feed_image,exclude,exclude_tree,include,hierarchical,show_option_none,number,echo,current_category,pad_counts,taxonomy
-				
-						//when ESSENTIAL parameters are not set
-						if (empty($args['child_of']))		{ return 'error494__set child_of parameter for listed ' .$TYPEE;}
-						if (empty($args['depth']) )			{ $args['depth']= 0;}
-						if (empty($args['echo']) )			{ $args['echo']	= 0;}
-						if (empty($args['hide_empty']) )	{ $args['hide_empty']= 0;}
-						if (empty($args['title_li']) )		{ $args['title_li']	= "";}
-						
-					//this doesnt work when used inside LOOP
-						//$X =  get_categories('echo=1&child_of=30') );
-				$X = wp_list_categories($args);
-			}
-			elseif ( 'posts' == $TYPEE){
-				// https://codex.wordpress.org/Function_Reference/wp_list_categories //show_option_all,orderby,order,style,show_count,hide_empty,use_desc_for_title,child_of,feed,feed_type,feed_image,exclude,exclude_tree,include,hierarchical,show_option_none,number,echo,current_category,pad_counts,taxonomy
-				
-						//when ESSENTIAL parameters are not set
-						if (empty($args['child_of']))		{ return 'error494__set child_of parameter for listed ' .$TYPEE;}
-						if (empty($args['depth']) )			{ $args['depth']= 0;}
-						if (empty($args['echo']) )			{ $args['echo']	= 0;}
-						if (empty($args['posts_per_page']) ){ $args['posts_per_page']	= -1;}
-						if (empty($args['hide_empty']) )	{ $args['hide_empty']	= 0;}
-						if (empty($args['post_type']) )		{ $args['post_type']	= get_post_types();}
-						if (empty($args['category']) )		{ $args['category']	= $args['child_of'];}
-						
-				$out = '';
-				$array =  get_posts($args); 
-				foreach ($array as $key=> $value) {
-					$out .= '<li class="manual_posts"><a href="'.get_permalink($value->ID).'">'.$value->post_title.'</a></li>';
-				}
-
-					//this doesnt work when used inside LOOP
-						//$X =  get_categories('echo=1&child_of=30') );
-						//$X = wp_list_categories($args);
-				$X =$out;
-			}
-			elseif ( 'menu' == $TYPEE){
-				// https://codex.wordpress.org/Function_Reference/wp_nav_menu  //theme_location,menu,container,container_class,container_id,menu_class,menu_id,echo,fallback_cb,before,before,after,link_before,link_after,items_wrap,depth,
-					
-						//when ESSENTIAL parameters are not set
-						if (empty($args['menu']))	{ return 'error494__set "menu" parameter for listed ' .$TYPEE;}
-				$X= wp_nav_menu($args);
-					//https://codex.wordpress.org/Function_Reference/wp_nav_menu
-					//https://codex.wordpress.org/Function_Reference/wp_get_nav_menu_items
-					$sample_arr= array(
-						'theme_location'  => '',
-						'menu'            => '_main_menu',
-						'container'       => 'div',			'container_class' => 'sideMyBox',			'container_id'    => 'my_SideTreeee',
-						'menu_class'      => 'menu',		'menu_id'         => '',
-						'echo'            => 0,				'fallback_cb'     => 'wp_page_menu',
-							'before'          => '',		'after'           => '',
-							'link_before'     => '',		'link_after'      => '',
-							'items_wrap'      => '<ul id="%1$s" class="%2$s">%3$s</ul>',
-						'depth'           => 0,
-						'walker'          => ''
-					);
-			}
-			return '<div class="listed_shortcode listed_'.$TYPEE.'"><ul>'.$X.'</ul></div>';
-		} );
-	} 
 	
-	// ==================== END | Shortcodes =======================
-	
-	
-	
-	
-	public function init__cookieexpiration(){   add_filter('auth_cookie_expiration', [$this,'my_auth_cookie_expiration'], 99, 3);   }
-	public function my_auth_cookie_expiration($seconds, $user_id, $remember){
-		$expiration = $remember ? $this->auth_expiration_hours*60*60 : 2*24*60*60;
-
-		// https://en.wikipedia.org/wiki/Year_2038_problem
-		if ( PHP_INT_MAX - time() < $expiration ) {
-			//Fix to a little bit earlier!
-			$expiration =  PHP_INT_MAX - time() - 5;
-		}
-		return $expiration;
-	}
-
-	//breadcrumbs: pastebin_com/CzNyaEKE
-	public function add_title_field_to_category(){
-		add_action ( 'edit_category_form_fields', function(){
-			$cat_title = get_term_meta( (int) $_POST['tag_ID'], '_pagetitle', true);
-			?> 
-			<tr class="form-field">
-				<th scope="row" valign="top"><label for="cat_page_title"><?php _e('Category Page Title'); ?></label></th>
-				<td>
-				<input type="text" name="cat_title" id="cat_title" value="<?php echo $cat_title ?>"><br />
-					<span class="description"><?php _e('Title for the Category '); ?></span>
-				</td>
-			</tr>
-			<?php
-		});
-		add_action ( 'edited_category', function() {
-			if ( isset( $_POST['cat_title'] ) ) {
-				update_term_meta( (int) $_POST['tag_ID'], '_pagetitle', sanitize_text_field($_POST['cat_title']) );
-			}
-		} );
-	}
-
-
 	public function get_template_filename($post_id=false){
 		if(is_page()){
 			$name=	get_post_meta( $post_id ?: $GLOBALS['post']->ID, '_wp_page_template', true);   // page-templates/my_homepage_1.php
@@ -1271,18 +806,16 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		return false;
 	}
 
-
 	// disable georgian russian slugs: https://pastebin_com/UmvhEmuz
  
-	//execute explicitly when testing
-	//add_action('save_post',  function () { var_dump($_POST); exit; }, 99, 11);  
+	// example to dump: add_action('save_post',  function () { var_dump($_POST); exit; }, 99, 11);  
 
-	public function debug_actions(){	add_action( 'wp_footer', function (){ var_dump( $GLOBALS['wp_filter']); } );   }
-	public function called_script()	{ return $_SERVER["SCRIPT_FILENAME"];}
+	public function debug_actions()   {	add_action( 'wp_footer', function (){ var_dump( $GLOBALS['wp_filter']); } );   }
+	public function called_script()	  { return $_SERVER["SCRIPT_FILENAME"];}
 	public function is_subscriber()	  { return $this->is_helper_('read'); }
 	public function is_contributor()  { return $this->is_helper_('edit_posts'); }
-	public function is_author()		  { return $this->is_helper_('upload_files'); }
-	public function is_editor()		  { return $this->is_helper_('edit_others_posts'); }
+	public function is_author()       { return $this->is_helper_('upload_files'); }
+	public function is_editor()       { return $this->is_helper_('edit_others_posts'); }
 	public function is_administrator(){ return $this->is_helper_('install_plugins'); }
 	private function is_helper_($what){ return (function_exists('current_user_can') || require_once(ABSPATH.'wp-includes/pluggable.php')) && current_user_can($what); }
 
@@ -1400,21 +933,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		
 	}
 
-
-	public function output_js_categories_ids()
-	{
-		if( ! ($out = get_transient('termids_for_js'))) {
-			$terms= get_terms();
-			foreach($terms as $term){
-				$cats[$term->term_id] = urldecode($term->slug);
-			}
-			$out = json_encode($cats, JSON_UNESCAPED_UNICODE);
-			set_transient('termids_for_js', $out , 60*60);
-		}
-		echo "<script>cat_term_ids = $out;</script>";	
-	}			
-		
-			
 	public function get_metas_by_metakv($key, $value=null, $what=false) {
 		global $wpdb;
 		$results =  $wpdb->get_results( 
@@ -1431,11 +949,8 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		}
 		return false;
 	}
-		
- 
-	
+
 	// metaboxes, meta-box, media-uploaders:  https://pastebin_com/ePszrRWb
-	
 	public function error_mail($subject, $text){
 		return wp_mail(get_option('admin_email'),  $subject,  $text );
 	}
@@ -1457,30 +972,9 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		add_action('shutdown',  function() { ob_end_flush(); } );     
 	}
 
-	public function disable_rest_api()
-	{
-		$restrict_rest_api_to_localhost = function () {
-			$whitelist = [ '127.0.0.1', "::1" ];
-
-			if( ! in_array($_SERVER['REMOTE_ADDR'], $whitelist ) ){
-				die( 'REST API is disabled.' );
-			}
-		};
-		add_action( 'rest_api_init', $restrict_rest_api_to_localhost, 0 );
-		
-		$func= function( $result ) {
-			if ( ! empty( $result ) ) {
-				return $result;
-			}
-			if ( ! is_user_logged_in() ) {
-				return new WP_Error( 'rest_not_logged_in', 'You are not currently logged in.', array( 'status' => 401 ) );
-			}
-			return $result;
-		};
-		add_filter( 'rest_authentication_errors', $func);
-	}
-
     
+	#region     DATABASE FUNCTIONS
+	
 	// name, columns (included), excluded
 	public function output_table_from_db_table($opts)
 	{
@@ -1488,7 +982,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		$opts['reverse']  = $this->array_value($opts,'reverse',true);
 		$opts['limit']    = $this->array_value($opts,'limit',9999);
 		$opts['datetime_key']  = $this->array_value($opts,'datetime_key', 'time');
-
 
 		$results = $this->db_get_results( $opts['name'], '*');
 		if ($opts['reverse'])
@@ -1538,8 +1031,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	}
 
 
-	#region     DATABASE FUNCTIONS
-	
 	// $this->create_table_my( 'myTable1', [ '`gmdate` datetime', '`function_args` longtext NOT NULL' ] );
 	public function create_table_my($table_name, $array, $auto_increment_ID=true){
 		global $wpdb;
@@ -1668,7 +1159,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		return $wpdb->query($wpdb->prepare($sql, $data));	// Run the query.  Returning number of affected rows for this chunk
     }
  
-
 	public function add_column_my($table_name, $column_name, $column_type="mediumtext", $afterColumn=false){
 		global $wpdb;
 		$all_columns = $this->db_table_columns($table_name);
@@ -1718,6 +1208,27 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	public function db_table_columns($table_name='tablename' ){
 		return $GLOBALS['wpdb']->get_col("DESC `". $this->sanitize_key($table_name)."`", 0);
 	} 
+
+	public function sql_results_to_array($tableName, $first_key, $second_key=false, $data_key=false)
+	{ 
+		$array=$this->object_to_array( $this->get_table_my($tableName) );
+
+		$new_array=[];
+		foreach($array as $id=>$block)
+		{
+			if(array_key_exists($first_key, $block))
+			{
+				if ($second_key)
+				{
+					if(array_key_exists($second_key, $block))
+						$new_array[$block[$first_key]][$block[$second_key]] = $data_key ? json_decode($block[$data_key]) : $block;
+				}
+				else
+					$new_array[$block[$first_key]] = $data_key ? json_decode($block[$data_key]) : $block;
+			}
+		}
+		return $new_array;
+	}
 
 	public function check_error_and_add_column($tablename, $added_column_type="mediumtext")
 	{
@@ -1909,7 +1420,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		$columns_array = count($datas)>=1 ? $this->array_keys($datas[0]) : $this->db_table_columns($this->notifications_db_tablename());
 		?>
 		<table class="notificationslogs-table">
-		<thead><tr><?php foreach($columns_array as $key){$key=sanitize_key($key); echo "<th class='$key'>".$key."</th>"; } ?></tr></thead>
+		<thead><tr><?php foreach($columns_array as $key){ $key=sanitize_key($key); echo "<th class='$key'>".$key."</th>"; } ?></tr></thead>
         <tbody><?php 
         $datas = array_reverse($datas);
         $datas = array_slice($datas, 0, $show_rows);
@@ -1917,15 +1428,9 @@ if (!class_exists('\\Puvox\\library_wp')) {
         { ?>
             <tr>
                 <?php foreach($block as $key2=>$val2){ 
-                    $key2=sanitize_key($key2); 
+                    $key2 = sanitize_key($key2); 
                     $val2 = sanitize_text_field($val2);
-                    if ($key2==='time'){
-                        $d1= date("Y-m-d H:i:s", $val2);
-                        $out= $d1;
-                    }
-                    else{
-                        $out=$val2; 
-                    }
+                    $out = ($key2==='time' ? date("Y-m-d H:i:s", $val2) : $val2);
                     echo "<td class='$key2'>$out</td>";
                 } ?>
             </tr>
@@ -1943,13 +1448,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		<?php
 	}
 	// ###################################
-
-
-
-
-
-
-
 
 
 
@@ -2070,87 +1568,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		} 
 	}	
 
-	//lets load after init of LANGUAGE phrazes
-	//if (isset($_GET['contactMAILpage']))  mailform_page(); 
-	public function mailform_page($title=false){
-		echo '<html><head><meta http-equiv="content-type" content="text/html; charset=UTF-8"><title>'.(isset($title) ? $title : 'Mail Sending'). '('.$_SERVER['http_host'].')'.'</title></head><body>';      
-		echo $this->contacttt_form() ;
-		echo '</body></html>';
-		exit;
-	}
-	public function contact_form_init(){
-		add_shortcode('MyCONTACT_FORM', 'contacttt_form' );
-	}
-	public function contacttt_form($extra_block=''){  $rand= rand(1,111); $multiplier=date('j');  
-		$extra_bl =(!is_array($extra_block) ? $extra_block : '');
-		$x = utf8_declarationn() . '
-		<div id="contac_DIV">'
-			.'<style type="text/css"> #submitContatForm{cursor:pointer;} .cf_formm{ display:block;	margin:0 auto;}       .cf_formm table{width:100%; max-width:400px; margin:0 auto;} .brdr{ border-radius:5px; border:1px solid; padding:3px; margin:5px; background-color:#E6E6E6; } .cfinputt{display:block; width:92%; height:30px; min-width:140px; }      .cftxtarea{display:block; width:96%; height:200px;} .submt{ cursor:pointer; } td{vertical-align: middle;}         td.leftflot{float:left; padding:0 0 0 10px;}     span.antWORD{font-weight:bold;} </style>'
-			.'<form class="cf_formm" action="" method="POST" id="contactFormID" target="_blank"> 	<input type="hidden" name="contactIsSubmited" value="y" />'
-			.'<table><tbody>'
-			.$extra_bl
-			.'<tr><td>Your Name</td><td><input class="cfinputt brdr" name="namee" value="" placeholder="" type="text" /></td></tr>'
-			.'<tr><td>Your Mail</td><td><input class="cfinputt brdr" name="emailii" value="" placeholder="" type="text" /></td></tr>'
-			.'<tr><td colspan="2"><textarea class="cftxtarea brdr" name="teext"/></textarea></td></tr>'
-			.'<tr><td><span class="antWORD">'. $rand . "*". $multiplier.'=<input type="hidden" name="initiall" value="'. $rand .'" /></span></td><td class="leftflot"><input class="cfinputt brdr" type="text" value="" name="antiSpamm"  /></td></tr>'
-			.'<tr><td><input class="cfinputt brdr submt" type="submit" value="SEND" id="submitContatForm"  /></td><td>&nbsp;</td></tr>'
-			.'</tbody></table>'
-			.'</form>'
-		.'</div>';
-		return $x;
-	} 
-	public function mailsent_page($to,$subject,$message,$from, $title=false){
-		echo '<html><head><meta http-equiv="content-type" content="text/html; charset=UTF-8"><title>'.(isset($title) ? $title : 'Mail Sending'). '('.$_SERVER['http_host'].')'.'</title></head><body>';      
-		echo send_maill($to,$subject,$message,$from);
-		echo '</body></html>';
-		exit;
-	}
-	//if(!$this->definedTRUE('avoid_mailcheck')) { add_actionX('init','check_mailsentt'); }
-	public function check_mailsentt(){
-		if (!empty($_POST['contactIsSubmited'])){
-			header('Content-Type: text/html; charset=utf-8');  
-			global $odd,$lang;
-			$messiji	= isset($_POST['teext'])	? sanitize_text_field($_POST['teext'])	: '';
-			$maill		= isset($_POST['emailii'])	? sanitize_text_field($_POST['emailii'])	: ''; 
-				$from_mail =(!stristr($maill,'@yahoo.com')) ?		$maill : 'X'.rand(1,1111111).rand(1,1111111).'@no-reply.com';
-			$nameei		= isset($_POST['namee'])	? sanitize_text_field($_POST['namee'])	: '';
-			
-			$admin_mail	= get_option('admin_email');
-			$subjectt	= $_SERVER['HTTP_HOST'] . '-dan gamogzavnilia shetyobineba';
-			$full_messag="FROM: $nameei ($maill) \r\n\r\n Message:\r\n" . $messiji;
-			
-			
-			//if (($_POST['antisp_conf']=='yess') && (!empty($_POST['namee']) && !empty($_POST['emailii']) && !empty($_POST['teext'])))
-			if(empty($_POST['namee']) || empty($_POST['emailii']) || empty($_POST['teext']))					{die(!defined('LNG') ? "please, fill form" : $lang['fill_form_'.LNG] ); }	
-			elseif ( ! ( in_array($_POST['antiSpamm']/$_POST['initiall'],  array(date('j'),date('j')-1))) ) 	{die("Error Captcha");	}
-			else {  exit(send_maill($admin_mail,$subjectt,$full_messag, $from_mail )); }
-		}		
-	}
- 
-	public function check_mailsent2(){
-		if(isset($_GET['sendmessage'])){
-			$to			= get_option('admin_mail');
-			$subject	= !empty($_POST['subject']) ? sanitize_text_field($_POST['subject']) : '' ;
-			$from		= validate_mail($_POST['email']) ? sanitize_text_field($_POST['email']) : die("incorrect_mail");
-			$name		= isset($_POST['name']) ? sanitize_text_field($_POST['name']) : die("incorrect NAME");
-			$messg		= isset($_POST['content']) ? sanitize_text_field($_POST['name']) : die("incorrect NAME");
-			$phone		= !empty($_POST['phone']) ? sanitize_text_field($_POST['phone']) : '' ;
-			$message	= "Name: ".$name."\r\nE-mail: ".$from."\r\nPhone: ".$phone."\r\nMessage:\r\n\r\n".$messg;
-			if($_POST['captxt'] != $_POST['Captcha']){ die("incorrect captcha"); }
-			// mailsent_page($to,$subject,$message, $from);
-			send_maill($to,$subject,$message,$from);
-		}
-	}
- 
-	public function send_maill($to, $subject, $message, $from=false, $reply_to=false){
-		$result = my_mail($to ,$subject, $message ,  default_mail_headers($from));
-
-		if ($result) { $success_messg='<span class="seent" style="color:green; display:block; font-size:25px;">SENT!</span>';}
-		else		 { $success_messg='<span class="cant_send" style="color:red;">ERRORR..</span>';	}
-		return $success_messg;
-	}
- 
-	
 
 
 
@@ -2164,11 +1581,12 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	// 		'value'		   => true,
 	// 	  ],
 	// 	  ...
-    public function options_show_table($unique_form_name = "my_opts1", $stardard_options_array = [], $existing_options_values = [], $wrap_in_table = false, $wrap_in_form = false){
+    public function options_output_table($unique_form_name = "my_opts1", $stardard_options_array = [], $existing_options_values = [], $wrap_in_table = false, $wrap_in_form = false){
 		$out = '';
 		$prefix = $unique_form_name;
+		$is_submission = $this->check_form_submission( 'nonceKeyRand_'.$prefix, 'nonceActRand_'.$prefix);
 		// save
-		if( $this->check_form_submission( 'nonceKeyRand_'.$prefix, 'nonceActRand_'.$prefix) ) {
+		if($is_submission) {
 			foreach ($stardard_options_array as $key => $block)
 			{
 				$type = $this->array_value ($block, 'type', '');
@@ -2192,11 +1610,16 @@ if (!class_exists('\\Puvox\\library_wp')) {
 			if ($type == 'linebreak') {
 				$input_html = '<hr>';
 				$out .= 
-				'<tr class="trline tr_'.$key_name.' trempty"><td colspan="100%">'. $title .'</td></tr>';
+				'<tr class="trline tr_'.$key_name.' trempty" style="background:#cdcdcd;"><td colspan="100%"></td></tr>';
+			}
+			else if ($type == 'linetitle') {
+				$input_html = '<hr>';
+				$out .= 
+				'<tr class="trline tr_'.$key_name.' trempty" style="text-align:center;"><td colspan="100%">'. $title .'</td></tr>';
 			}
 			else {
 				$default_value = $block['default'];
-				$current_value = $this->array_value($existing_options_values, $key_name); 
+				$current_value = $this->array_value($existing_options_values, $key_name, $default_value); //actually, default_value should already be prefilled during options initialization (in refresh_opt)
 				$is_numeric    = is_numeric($default_value);
 				$is_string     = is_string($default_value);
 				$is_color      = $is_string && self::is_color_string($default_value);
@@ -2205,7 +1628,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 				$placeholder   = $this->array_value($block, 'placeholder', $default_value);
 
 				$input_html = '';
-				if    ( is_bool($default_value) )
+				if ( is_bool($default_value) )
 					$input_html = '<input name="'.$prefix.'['.$key_name.']" value="1" type="checkbox" '. $this->if_checked($current_value).' />';
 				elseif( is_numeric($default_value) )
 					$input_html = '<input name="'.$prefix.'['.$key_name.']" value="'. number_format($current_value) .'" placeholder="'.$placeholder.'" style="width:70px;" />';
@@ -2213,7 +1636,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 					if($type=='color')
 						$input_html = '<input type="color" name="'.$prefix.'['.$key_name.']" value="'. esc_attr($current_value) .'" placeholder="'.$placeholder.'" style="width:70px;" />';
 					else if($type=='textarea') 
-						$input_html = '<textarea name="'.$prefix.'['.$key_name.']" placeholder="'.$placeholder.'" >'. $current_value .'</textarea>';
+						$input_html = '<textarea name="'.$prefix.'['.$key_name.']" placeholder="'.$placeholder.'" style="width: 100%;">'. $current_value .'</textarea>';
 					else if($type=='html') 
 						$input_html = $val; 
 					else    //default to text              
@@ -2241,92 +1664,21 @@ if (!class_exists('\\Puvox\\library_wp')) {
 				$input_html .= $description ? '<p class="description">'.$description.'</p>' : '';
 				// add row
 				$out .= 
-				'<tr class="trline tr_'.$key_name.'">
-				 <td>
-					<label for="search_hightlighting__tooltip_to_search">
-						'. $title .'
-					</label>
-				 </td>
-				 <td><fieldset>'.$input_html.'</fieldset></td>'.
-				 '</tr>';
+				'<tr class="tr_line tr_'.$key_name.'">'.
+					'<td class="td_first_col" style="min-width:200px;">'.
+						'<label for="search_hightlighting__tooltip_to_search">'.
+							$title .
+						'</label>'.
+					'</td>'.
+					'<td><fieldset class="deftype_'.$type.'">'.$input_html.'</fieldset></td>'.
+				'</tr>';
 			}
 		}
 		if ($wrap_in_table) { $out .= '</tbody></table>'; }
 		if ($wrap_in_form) { $out .= $this->submit_button('SAVE SETTINGS', 'nonceKeyRand_'.$prefix, 'nonceActRand_'.$prefix) . '</form>'; }
-		echo $out;
-		return $existing_options_values;
+		return [$is_submission, $existing_options_values, $out];
 	}
 	#endregion ================= APP OPTIONS =================
-
-
-	/*
-    public function options_for_keys__helper($keyName, $include_type=''){
-        $array = [];
-        foreach($this->initial_user_options as $key=>$val)
-        {
-			if (!is_array($val))
-			{
-				if ( empty($keyName) ){
-					$array[$key]=$val;
-				} 
-				else if ( 
-					   ($include_type==""      && $this->helpers->contains($key, $keyName) )
-					|| ($include_type=="start" && $this->helpers->starts_with($key,$keyName))
-					|| ($include_type=="end"   && $this->helpers->ends_with($key,$keyName))
-				)
-				{
-					$array[$key]=$val;
-				}
-			}
-        }
-        return $array;
-    }
-    public function options_for_keys_table($keyName='', $include_type=''){
-		?><table class="form-table"><td colspan="100%"><h3>Options</h3></td><?php $this->options_for_keys_output();?></table><?php 
-	}
-    public function options_for_keys_output($keyName='', $include_type=''){
-		foreach ( $this->options_for_keys__helper($keyName,$include_type) as $key=>$val ) { 
-			$value   = $this->opt($key);
-			$is_bool = is_bool($value);  
-			?>
-			<tr class="def">
-				<td scope="row">
-					<code><?php echo $key;?></code>
-				</td>
-				<td scope="row">
-					<?php echo '<input name="'.$this->plugin_slug.'['.$key.']" '. ($is_bool ? 'type="checkbox" value="1" '. checked($value, true, false) : 'type="text" value="'. $value .'" />');?>
-				</td>
-			</tr>
-		<?php }
-	}
-    public function options_for_keys_update($keyName='', $include_type=''){
-		foreach ( $this->options_for_keys__helper($keyName,$include_type) as $key=>$val ) { 
-			$value   = $this->opt($key);
-			$is_bool = is_bool($value);
-			$this->opts[$key] = $is_bool ? isset($_POST[ $this->plugin_slug ][$key]) : sanitize_text_field( stripslashes($_POST[ $this->plugin_slug ][$key]) );   
-		}
-	}
-    public function opt($key) {  return isset($this->opts[$key]) ? $this->opts[$key] : ''; }
-	*/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -2344,49 +1696,15 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		}
 	}
 
-
-	public function test_favicons(){
-		$image = is_admin() ? 'M8,3A2,2,0,1,1,6,1,2,2,0,0,1,8,3' : 'M8,3A2,2,0,1,1,4,3';
-		$color = $this->is_localhost() ?'ff0000' : '00ff00';
-		$tmp   = '<link rel="icon" rel2="tempFav" type="image/png"  href="'. (!empty($url) ? $url : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='5 1 2 4'%3E%3Cpath d='$image' fill='%23$color'/%3E%3C/svg%3E").'" />';
-		add_action('admin_head', function() use($tmp) { echo $tmp; } );
-		add_action('wp_head',    function() use($tmp) { echo $tmp; } );
+	public static function add_query_arg_esc($param, $val){
+		return esc_url(self::add_query_arg($param, $val));
+	}
+	public static function remove_query_arg_esc($param, $val = false){
+		return esc_url(self::remove_query_arg($param, $val));
 	}
 
 	// add widgets: https://pastebin_com/VzDQgJrF
 
-	// Default classes 
-	public function add_content_classes()
-	{
-		add_action('the_excerpt',		[$this, 'default_containers_excerpt']);  
-		add_action('the_excerpt_rss',	[$this, 'default_containers_excerpt']); //<-deprecated or not?  
-		add_action('the_excerpt_feed',	[$this, 'default_containers_excerpt']);
-
-		add_action('the_content',		[$this, 'default_containers_content'] );
-		add_action('the_content_rss',	[$this, 'default_containers_content']); //<-deprecated
-		add_action('the_content_feed',	[$this, 'default_containers_content']);
-	}
-	public function default_containers_content($cont){ return !isset($GLOBALS['post']) ? $cont : '<div class="default-content-clss cnt_' . $GLOBALS['post']->ID .' type_'.$GLOBALS['post']->post_type.' ">'.$cont.'</div>';  }
-	public function default_containers_excerpt($cont){ return !isset($GLOBALS['post']) ? $cont : '<div class="default-content-clss excp_'. $GLOBALS['post']->ID .' type_'.$GLOBALS['post']->post_type.' ">'.$cont.'</div>';  }
-
-	//CSS CLASSES for BODY
-	public function add_my_body_classes() { add_filter( 'body_class', 		[$this, 'add_my_body_classes_HELPER'] ); add_filter( 'admin_body_class', [$this, 'add_my_body_classes_HELPER'] ); }
-	public function add_my_body_classes_HELPER( $classes )
-	{
-		$this->add_body_class_($classes, " ". $this->domainReal);
-		$this->add_body_class_($classes, " ". (is_admin() ? "backend":"frontend") );
-		//$this->add_body_class_($classes, $GLOBALS['odd']['is_pc_platform'] ? "pcOS" : "mobileOS");
-		
-		//add role
-		$roles = ( array ) wp_get_current_user()->roles;
-		$chosen = " ".'role-'.(isset($roles[0]) ? $roles[0] : 'guest');
-		$this->add_body_class_($classes, $chosen);
-		//
-		return $classes;
-	}
-	public function add_body_class_(&$classes, $value){ if (is_array($classes)) $classes[] = $value;  else $classes .= $value; return $classes;  }
-	 
-	
 	//allsite_options
 	public function get_option_my($keyNAME, $re_call = false, $defaultvalue=false){
 		if (!isset($this->my_custom_optioned_array) || !array_key_exists($keyNAME, $this->my_custom_optioned_array) || $re_call) {
@@ -2416,8 +1734,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		){	return true;	}
 		else{ return false;}
 		
-	} 
-
+	}
 
 }} // class
 
@@ -2530,7 +1847,11 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		$this->helpers->register_backend_call_actions();
 
 		add_action( 'admin_head', [$this,'admin_head_func']);
-		add_action( 'current_screen', function(){ $this->admin_scripts(null); } );
+		add_action( 'current_screen', function(){ 
+			if($this->is_this_settings_page()){
+				$this->admin_scripts_out(null); //i.e. edit.php
+			}
+		});
 
 		//add uninstaller file
 		if(is_admin() && method_exists($this->helpers,'add_default_uninstall')) $this->helpers->add_default_uninstall();	//add_action( 'shutdown', [$this, 'my_shutdown_for_versioning']);
@@ -2646,7 +1967,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 				else 
 					add_submenu_page($this->settingsPHP_page_dynamic, $menu_button_name, $menu_button_name, $menuBlock['required_role'] , $this->slug,  [$this, 'opts_page_output_parent'] );
 
-				// if target is custom link (not options page)//add_action( 'admin_footer', function (){ <script type="text/javascript"> jQuery('a.toplevel_page_<?php echo $this->slug;').attr('href','echo $this->opts['menu_button_link'];').attr('target','_blank'); </script> 
+				// if target is custom link (not options page)//add_action( 'admin_footer', function (){ <script type="text/javascript"> jQuery('a.toplevel_page_<?php echo $this->slug;').attr('href','echo esc_attr($this->opts['menu_button_link']);').attr('target','_blank'); </script> 
 			}
 		}
 	
@@ -2725,7 +2046,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 			// new options format
 			if (is_array($block_or_value)){
 				if (!array_key_exists($name, $this->opts)) {
-					$this->opts[$name]=$block_or_value['value']; $should_update=true;
+					$this->opts[$name]=$block_or_value['default']; $should_update=true;
 				}
 			}
 			// support old format (will be deprecated)
@@ -3009,7 +2330,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 				<script>
 				jQuery(function(){  
 					window.setTimeout(function(){ 
-					jQuery('#paypal_donation_popup_2').dialog({ title:"<?php echo $this->static_settings['Name'];?>",  modal:true,   width:600 });
+					jQuery('#paypal_donation_popup_2').dialog({ title:"<?php echo esc_attr($this->static_settings['Name']);?>",  modal:true,   width:600 });
 					
 					jQuery("#puvox_donate_button").click(function(e) {
 						e.preventDefault();
@@ -3030,52 +2351,25 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	public function wp_kses($text, $tagsArr=[]){
 		return wp_kses($text,$tagsArr);
 	}
-	public function notes_field(){
-		if ($this->notes_enabled && current_user_can("manage_options") )
-		{
-			$optname=  'my_custom_note_'.$this->plugin_slug;
-			//if form updated
-			if( $this->check_form_submission('_wp_note_nonce2', 'note_nonce2_' ) )
-			{
-				update_option($optname, $this->wp_kses($_POST['mynote']) );
-			}
-			?>
-			<div id="notesfield">
-				<form action="" method="POST" style="background:pink; padding:5px 10px;">
-					<h2>Your notes</h2>
-					<textarea style="width:100%; height:200px;" name="mynote"><?php echo get_option($optname,'');?></textarea>
-					<?php  $this->nonceSubmit('save only note', '_wp_note_nonce2', 'note_nonce2_') ; ?>
-				</form>
-			</div>
-			<?php
-		}
-	}
-	
-	
-
 	public function is_activation(){
 		return (isset($_GET['isactivation']));
 	}
 
 	public function reload_without_query($params=array(), $js_redir=true){
-		$url = self::remove_query_arg( array_merge($params, ['isactivation'] ) );
+		$url = $this->helpers::remove_query_arg_esc( array_merge($params, ['isactivation'] ) );
 		if ($js_redir=="js"){ $this->js_redirect($url); }
 		else { $this->php_redirect($url); }
 	}
 
 	public function if_activation_reload_with_message($message){
 		if($this->is_activation()){
-			echo '<script>alert(\''.$message.'\');</script>';
+			echo '<script>alert(\''. wp_kses_post($message).'\');</script>';
 			$this->reload_without_query();
 		}
 	}
-
-
-
 	// navigation menu nav menu hooks: pastebin_com/BcGsVpe9
 
 	// if post_exists query: https://goo.gl/aHZzv9
-
 	public function send_error_mail($error){
 		return wp_mail($this->static_settings['mail_errors'], 'wp plugin error at '. home_url(),  (is_array($error) ? print_r($error, true) : $error)  );
 	}
@@ -3208,16 +2502,21 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		echo '<div class="nav-tab-wrapper customNav '. (false && empty($this->static_settings['display_tabs']) ? "displaynone" : "") .'">';
 		foreach($tabs_array as $each_tab){
 			$tab_TITLE = $each_tab=="Shortcodes" ? "Shortcodes & Api" : $each_tab;
-			echo '<a href="'. self::add_query_arg('tab', sanitize_key($each_tab) ).'" class="nav-tab '. sanitize_key($each_tab).' '. ($this->active_tab == $each_tab ? 'nav-tab-active  whiteback' : ''). '">'. __( $tab_TITLE).'</a>';
+			echo '<a href="'. $this->helpers::add_query_arg_esc('tab', sanitize_key($each_tab) ).'" class="nav-tab '. sanitize_key($each_tab).' '. ($this->active_tab == $each_tab ? 'nav-tab-active  whiteback' : ''). '">'. __($tab_TITLE).'</a>';
 		}
 		echo '</div>';
 	}
 	
-	public static function add_query_arg($param, $val){
-		return esc_url(add_query_arg($param, $val));
-	}
-	public static function remove_query_arg($param, $val = false){
-		return esc_url(remove_query_arg($param, $val));
+
+	
+    public function options_output_table_full($unique_form_name = "my_opts1", $stardard_options_array = [], $existing_options_values = [], $wrap_in_table = false, $wrap_in_form = false){
+		[$is_submission, $existing_options_values, $out] = $this->helpers->options_output_table($unique_form_name, $stardard_options_array, $existing_options_values, $wrap_in_table, $wrap_in_form);
+		if ($is_submission) {
+			$this->opts = $existing_options_values;
+			$this->update_opts();
+			$this->helpers->js_redirect();
+		}
+		echo $out;
 	}
 
 	public function check_nonce($str1="mng_nonce", $str2="nonce_mng_" ){
@@ -3313,7 +2612,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 
 			if(isset($_GET[$this->slug.'-remove-pro']) ) {
 				delete_site_option($this->license_keyname());
-				$this->helpers->js_redirect(self::remove_query_arg($this->slug.'-remove-pro'));
+				$this->helpers->js_redirect($this->helpers::remove_query_arg_esc($this->slug.'-remove-pro'));
 			}
 		}
 	}
@@ -3328,7 +2627,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 			<div class="clear"></div>
 			<div class="<?php echo $this->myplugin_class;?>">
 
-				<h1 class="plugin-title"><?php echo $this->helpers->array_value($this->opts['menu_pages'][$menuId], 'page_title', $this->opts['name']);?></h1> 
+				<h1 class="plugin-title"><?php echo sanitize_text_field ($this->helpers->array_value($this->opts['menu_pages'][$menuId], 'page_title', $this->opts['name']));?></h1> 
 				<?php $this->options_tab(false, $menuId);  ?>
 				<!-- <h2 class="settingsTitle"><?php _e('Plugin Settings Page!');?></h2> --> 
 					<div class="optwindow">
@@ -3359,10 +2658,11 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 				echo '<h1 class="shortcodes_maintitle">'. __('Available hooks (to modify from external functions)') .'</h1>';
 				if ( property_exists($this, "hooks_examples") ) {
 					foreach ($this->hooks_examples as $key=>$block){
-						echo '<div class="hook_example_block '.$key.'">';
+						echo '<div class="hook_example_block '.esc_attr($key).'">';
 						if ($block['type']=='filter'){
-							echo '<div class="description">'. __($block['description']) .':</div>';
-							echo '<code>add_filter("'.$key.'", "yourFunc", 10, '. count($block['parameters'] ) .' );'."\r\n".'function yourFunc($'. implode(', $', $block['parameters'] ).') { ... return $'.$block['parameters'][0].';} </code>'; 
+							echo '<div class="description">'. __(wp_kses_post($block['description'])) .':</div>';
+							// todo: parameter map to function filter
+							echo '<code>add_filter("'.esc_attr($key).'", "yourFunc", 10, '. count($block['parameters'] ) .' );'."\r\n".'function yourFunc($'. implode(', $', $block['parameters'] ).') { ... return $'.$block['parameters'][0].';} </code>'; 
 						}
 						echo '</div>';
 					}
@@ -3386,7 +2686,8 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 								$phrases = $this->translation_phrases;
 								if(is_array($phrases_arr)){
 									foreach ($phrases_arr as $key=>$value){
-										$value = array_key_exists($key, $phrases) ? $phrases[$key] : $key;
+										$key = sanitize_text_field($key);
+										$value = sanitize_text_field(array_key_exists($key, $phrases) ? $phrases[$key] : $key);
 										echo '<tr>';
 										echo '<td>'. $key.'</td><td><input type="text" name="'.$this->slug.'[translation_phrases]['.$key.']" value="'. $value .'" /></td>';
 										echo '</tr>';
@@ -3442,7 +2743,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 								{
 									rsort($errors);  //reverse order, last added to top
 									$column_count =  count( $keys = array_keys( ((array)$errors[0]) )); 
-									echo '<tr class="headerRow">'; for($i=0; $i<$column_count; $i++) echo "<th class='row_{$keys[$i]}'>$keys[$i]</th>";echo '</tr>'; 
+									echo '<tr class="headerRow">'; for($i=0; $i<$column_count; $i++) {$val = sanitize_text_field($keys[$i]); echo "<th class='row_{$val}'>$val</th>";} echo '</tr>'; 
 
 									$j=0;
 									foreach ($errors as $each_err) {
@@ -3456,11 +2757,11 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 											{
 												$out = $current;
 											}
-											echo '<td class="row_'.$keys[$i].'"><pre>'. htmlentities($out).'</pre></td>';
+											$val = sanitize_text_field($keys[$i]);
+											echo '<td class="row_'.$val.'"><pre>'. htmlentities($out).'</pre></td>';
 										}
 										echo '</tr>';
 									}
-
 								}
 								?>
 							</tbody>
@@ -3524,6 +2825,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		$this->initial_user_options = $array;
 	}
 
+	/*
 	public function custom_options_table() {
 		$all_opts=$this->get_my_site_option();
 		//if updated
@@ -3544,10 +2846,9 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 			<div class="my_save_divv" style="text-align:center; padding:10px;  z-index:999; "><input type="submit" class="my_SUBMITT" value="SAVE" /></div> <?php echo $this->nonce_field('securit_noncee223','myopts_exs2'); ?> 
 		</form>
 		<?php 
-	}
+	}*/
 
 
-	
 	public function end_styles($external=false)
 	{ ?>
 		<?php 
@@ -3558,7 +2859,6 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 			echo '<div class="'.$this->myplugin_class.'">'; 
 		}
 		?>
-
 		<style>
 			.myplugin { margin: 20px 20px 0 0; line-height:1.2;  max-width:100%; display:flex; flex-wrap:rap; justify-content:center; flex-direction:column; padding: 20px; border-radius: 100px; }
 			.myplugin * { position:relative;}
@@ -3676,7 +2976,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 						function tt_donate_trigger(e)
 						{
 							e.preventDefault();
-							var url= '<?php echo $this->static_settings['donate_url'];?>'; //+ '/'+ document.getElementById('donate_pt').value
+							var url= '<?php echo esc_url($this->static_settings['donate_url']);?>'; //+ '/'+ document.getElementById('donate_pt').value
 							window.open(url,'_blank');
 						}
 						</script>
@@ -3694,7 +2994,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 
 			<?php if($this->static_settings['show_rating_message']) { ?>
 			<div class="review_block">
-				<a class="review_leave" href="<?php echo $this->static_settings['wp_rate_url'];?>" target="_blank">
+				<a class="review_leave" href="<?php echo esc_url($this->static_settings['wp_rate_url']);?>" target="_blank">
 					<span class="leaverating"><?php _e('Rate plugin');?></span>
 					<img class="stars" src="<?php echo $this->helpers->image_svg("rating-transparent");?>" />
 				</a>
@@ -3744,7 +3044,6 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		</div>
 		
 		<?php $this->donations_trigger_popup(); ?>
-		<?php $this->notes_field(); ?>
 
 		<?php if ($external===true) echo '</div>'; ?>
 		<?php
@@ -3808,13 +3107,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		}
 	}
 
-
-	public function admin_scripts($hook)  //i.e. edit.php
-	{
-		if($this->is_this_settings_page()){
-			$this->admin_scripts_out($hook);
-		}
-	}
+ 
 
 	// https://github.com/WordPress/WordPress/blob/master/wp-includes/script-loader.php
 	public function admin_scripts_out($hook)  //i.e. edit.php
@@ -3834,9 +3127,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		$this->helpers->register_stylescript($where, 'script',	'jquery-ui-dialog');
 		$this->helpers->register_stylescript($where, 'style',	'wp-jquery-ui-dialog');	
 		// download and include locally:	'ui-css', 'https://code (dot) jquery (dot) com/ui/1.12.1/themes/base/jquery-ui.css',  false,  '1.1');
-
 		$this->helpers->register_stylescript($where, 'script',	'jquery-ui-tooltip');
- 
 		//add_action('admin_footer', function() { <script></script> } );
 	}
 
@@ -3856,7 +3147,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 				var self=this;
 
 				data["action"]    = tt_ajax_action;
-				data["_wpnonce"]  = '<?php echo wp_create_nonce( "Puvox_BackendCallJS");?>';
+				data["_wpnonce"]  = '<?php echo wp_create_nonce("Puvox_BackendCallJS");?>';
 				data["act"]       = actName;
 				var displayLoader = displayLoader || false;
 				if (displayLoader)
@@ -3971,25 +3262,12 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		</script>
 		<?php
 	}
-  } // class 
-  #endregion
+
+	#region ==== PRO PLUGIN - PARTS ====
+	
 
 
-
-
-
-
-
-
-
-#----------------------------------------------------#
-#----------------------------------------------------#
-#region      [ functions for PRO plugins ]           #
-#----------------------------------------------------#
-#----------------------------------------------------#
-class wp_plugin_pro extends wp_plugin
-{
-
+ 
 	public function addon_path(){ return WP_PLUGIN_DIR .'/_addons/'.$this->slug .'-addon/addon.php';	}
 	public function addon_exists(){	return (file_exists($this->addon_path())); }
 	public function license_keyname(){ return $this->plugin_slug_u ."_l_key"; }
@@ -4094,7 +3372,7 @@ class wp_plugin_pro extends wp_plugin
 
 	public function admin_error_notice_pro(){ ?>
 		<div class="notice notice-error is-dismissible">
-			<p><?php  _e( sprintf('Notice: License for plugin <code><b>%s</b></code> is invalidated, so it\'s <b style="color:red;">PRO</b> functionality has been disabled.', $this->static_settings['Name']) );?> <a href="<?php echo $this->plugin_page_url;?>" target="_blank"><?php _e("Re-validate the key");?></a></p> 
+			<p><?php  _e( sprintf('Notice: License for plugin <code><b>%s</b></code> is invalidated, so it\'s <b style="color:red;">PRO</b> functionality has been disabled.', $this->static_settings['Name']) );?> <a href="<?php echo esc_url($this->plugin_page_url);?>" target="_blank"><?php _e("Re-validate the key");?></a></p> 
 		</div>
 		<?php
 	}
@@ -4141,7 +3419,7 @@ class wp_plugin_pro extends wp_plugin
 			
 			<div class="dialog_enter_key">
 				<div class="dialog_enter_key_content" title="Enter the purchased license key">
-					<input id="key_this" class="regular-text" type="text" value="<?php echo $this->get_license('key');?>"  />
+					<input id="key_this" class="regular-text" type="text" value="<?php echo esc_attr($this->get_license('key'));?>"  />
 					<button id="check_key" ><?php _e( 'Check key' );?></button>
 					<span id="check_results">
 						<span class="correct init_hidden"><?php _e( 'correct' );?></span>
@@ -4172,7 +3450,7 @@ class wp_plugin_pro extends wp_plugin
 					} else {
 						if (!$this->addon_exists()) {  ?>
 							<span class="purchase_phrase">
-								<a id="purchase_key" href="<?php echo esc_url($this->static_settings['purchase_url']);?>" target="_blank"><?php _e('GET FULL VERSION');?></a> <span class="price_amnt"><?php _e('only');?> <?php echo $this->static_settings['has_pro_version'];?>$</span>
+								<a id="purchase_key" href="<?php echo esc_url($this->static_settings['purchase_url']);?>" target="_blank"><?php _e('GET FULL VERSION');?></a> <span class="price_amnt"><?php _e('only');?> <?php echo esc_attr($this->static_settings['has_pro_version']);?>$</span>
 							</span>
 						<?php 
 						}
@@ -4199,7 +3477,7 @@ class wp_plugin_pro extends wp_plugin
 		<script>
 		function main_tt()
 		{ 
-			var this_action_name = '<?php echo $this->plugin_slug_u;?>';
+			var this_action_name = '<?php echo esc_attr($this->plugin_slug_u);?>';
 
 			(function ( $ ) {
 				$(function () {
@@ -4284,16 +3562,17 @@ class wp_plugin_pro extends wp_plugin
 						}
 					});
 				}
-
 			};
 		}
 		main_tt();
 		</script>
 		<?php
 	}
-	  
-  } // class
-  #endregion  ---------------  [ PRO-parts ] --------------- #
+	#endregion
+
+
+  } // class 
+  #endregion
 
 
 } // #NAMESPACE
