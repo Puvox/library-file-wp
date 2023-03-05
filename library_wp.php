@@ -2107,6 +2107,12 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	
 	//
 	
+	public function enable_admin_debug($exit=false){
+		if (WP_DEBUG)
+			add_filter('wp_php_error_message', function($message, $error) use ($exit) { return $message. $this->var_dump($error['message']); if($exit) die();} , 10,2);
+		//add_filter( foreach(['wp_die_ajax_handler',  'wp_die_json_handler',  'wp_die_handler'] as $each){ 
+	}
+
 	public function add_settings_page($array){
 		$actions = [];
 		if (is_multisite()){
