@@ -75,10 +75,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 	
 	public function init_properties()
 	{
-		if ($this->property('extend_shortcodes')) 			$this->extend_shortcodes();
-		if ($this->property('posts_per_page')) 				$this->init__postsperpage($this->posts_per_page); 
-		// This is not enabled, unless user explicitly enables it during tests!!! IT IS NOWHERE ENABLED, UNLESS YOU INSERT IN CODE YOURSELF. so, don't fear.
-		if ($this->property("enable_write_logs"))			$this->save_logs( $this->baseDIR  .'/___logs_' ); 
 	}
 	
 	//when is_admin or when page is unknown (for example, custom page or "wp-login.php" or etc... )
@@ -159,12 +155,6 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		} ); 
 	}
 
-	public function enable_admin_debug($exit=false){
-		if (WP_DEBUG)
-			add_filter('wp_php_error_message', function($message, $error) use ($exit) { return $message. $this->var_dump($error['message']); if($exit) die();} , 10,2);
-		//add_filter( foreach(['wp_die_ajax_handler',  'wp_die_json_handler',  'wp_die_handler'] as $each){ 
-	}
-	
 
 	public function disable_php_in_wpcontent()
 	{
@@ -2070,15 +2060,6 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	}
 	public function optName($optname, $prefix=false){
 		return $this->opt_name($optname, $prefix);
-	}
-
-	public function set_property($name, $value) {
-		if (property_exists($this->helpers, $name)) {
-			$this->helpers->$name = $value;
-		}
-		else {
-			$this->$name = $value;
-		}
 	}
 
 	public $options_save_privilege ='manage_options';
