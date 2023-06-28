@@ -1009,9 +1009,16 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		return false;
 	}
 
-	public function wp_bulk_update($table, $rows, $delete_array) {
+	public function db_delete_row($tablename, $WhereArray=[]){   	
+		global $wpdb; 
+		$whereStr=''; $i=1; foreach ($WhereArray as $key=>$value){ $whereStr .= $wpdb->prepare( sanitize_key($key) . " = '%s'", $value); if ($i != count($WhereArray)) { $whereStr .=' AND '; $i++;}  }
+		$sql = ("DELETE FROM `".sanitize_key($tablename)."` WHERE $whereStr");
+		return $wpdb->get_results($sql);
+	}
+
+	public function wp_bulk_update($table, $rows, $upd_array) {
 		global $wpdb;
-		$whereStr=''; $i=1; foreach ($delete_array as $key=>$value){ $whereStr .= $wpdb->prepare( sanitize_key($key) . " = '%s'", $value); if ($i != count($delete_array)) { $whereStr .=' AND '; $i++;}  }
+		$whereStr=''; $i=1; foreach ($upd_array as $key=>$value){ $whereStr .= $wpdb->prepare( sanitize_key($key) . " = '%s'", $value); if ($i != count($upd_array)) { $whereStr .=' AND '; $i++;}  }
 		$wpdb->query("DELETE FROM ". $table. " WHERE $whereStr"); 
 		return $this->wp_bulk_insert($table, $rows);
 	}
