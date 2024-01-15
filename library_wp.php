@@ -1695,7 +1695,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		}
 		// initial variables
 		$this->my_plugin_vars();
-		$this->network_managed_is_selected	= is_multisite() && $this->is_network_managed();
+		$this->network_managed_is_selected	= $this->is_network_managed();
 		$this->opts				= $this->refresh_options();							// Setup final variables
 		$this->refresh_options_time_gone();
 		$this->helpers->logs_table_name	= $this->get_prefix_CHOSEN() . $this->plugin_slug_u.'__errors_log';	// error logs table name
@@ -1706,16 +1706,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		$this->check_if_pro_plugin();
 		$this->__construct_my();		// All other custom construction hooks 
 
-		$this->network_wide_active          = is_plugin_active_for_network($this->static_settings['plugin_basename']) ;  //during network-activation,this is yet false so this will not be usable for activate-redirection link
-
-		// single-site: if main-button: admin.php | else: options-general.php
-		// multi-site:  if main-button: admin.php (multi & sub) | else: if sub-site: options-general.php else: settings.php
-		$this->settingsPHP_page_dynamic = $this->static_settings['menu_pages']['first']['level']=='mainmenu' ? 'admin.php' : ( !is_multisite() ? 'options-general.php' :  (!is_network_admin() ? 'options-general.php' : 'settings.php' ) );  // || !$this->network_managed_is_selected <--- no need, let users allow to have menu page in other panels too, there we give notice to manage from appropriate place 
-
-		//$this->plugin_page_url = ( !is_multisite() || !$this->helper_manager_page_network_is_allowed() || !$this->network_managed_is_selected ) ? admin_url() : network_admin_url();
-		$this->plugin_page_url = ( !is_multisite() || !$this->helper_manager_page_network_is_allowed() || !$this->network_managed_is_selected ) ? admin_url() : network_admin_url();
-
-		$this->plugin_page_url .= ( !empty($this->static_settings['custom_opts_page']) ?  $this->static_settings['custom_opts_page'] : $this->settingsPHP_page_dynamic.'?page='.$this->slug); 
+		$this->plugin_multi_single_site_page_select();
 
 		$this->plugin_files		= array_merge( (property_exists($this, 'plugin_files') ? $this->plugin_files : [] ),   ['index.php'] );
 		$this->translation_phrases= $this->get_phrases();
@@ -1729,10 +1720,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 
 		//translation hook
 		add_action('init', [$this, 'load_textdomain'] );
-
-		//==== my other default hooks ===//
-		$this->plugin__setup_links_and_menus();
-
+  
 		//shortcodes
 		$this->shortcodes_initialize();
 
@@ -1841,17 +1829,73 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		});
 	}
 
-	public function plugin__setup_links_and_menus()
+
+
+
+
+	
+	// #################################################################### //
+	// #################################################################### //
+	// ##################   MULTISITE OPTIONS HANDLING   ################## //
+	// #################################################################### //
+	// #################################################################### //
+
+	// happens before REAL activation (activated_plugin happens after individual DB activation) 
+	public function activate($network_wide)
 	{
+		// below check only happens when multisite installation, to check if the activation happens on intended NETWORK or SUBSITE mode
+		if ( is_multisite() )
+		{  
+			if(
+				( !$this->helper_managedfrom_constant_network_is_allowed() && ( $this->is_network_admin_referrer()  || $network_wide) )
+					||
+				( !$this->helper_managedfrom_constant_subsite_is_allowed() && (!$this->is_network_admin_referrer() || !$network_wide ) )
+			)
+			{
+				$text= '<h2><code>'.$this->opts['name'].'</code>: '. $this->static_settings['menu_text']['activated_only_from']. ' <b style="color:red;">'.($this->helper_managedfrom_constant_value()).'</b></h2>';
+				//$text .=  '<script>alert("'.strip_tags($text).'");</script>';
+				//header_remove("Location"); header_remove("X-Redirect-By"); 
+				die($text);
+			}
+		}
+		//$this->plugin_updated_hook();
+		if ( method_exists($this, 'activation_funcs') ) { $this->activation_funcs($network_wide); } 
+	}
+	// commented part:  pastebin_com/KNM3iMEs
+
+	public function plugin_multi_single_site_page_select() {
+		$this->network_wide_active          = is_plugin_active_for_network($this->static_settings['plugin_basename']) ;  // during network-activation, this is yet false so this will not be usable for activate-redirection link
+
+		$this->plugin_needs_network_base = true;
+		if (!is_multisite()) {
+			$this->plugin_needs_network_base = false;
+		} else if (!$this->helper_managedfrom_constant_network_is_allowed() || !$this->network_wide_active) {
+			$this->plugin_needs_network_base = false;
+		} else if (!$this->network_managed_is_selected) {
+			$this->plugin_needs_network_base = false;
+		}
+		$plugin_admin_baseurl = $this->plugin_needs_network_base ? network_admin_url() : admin_url();
+
+		// if main-menu-button: admin.php  (for multisite or singlesite installation)
+		// if sub-menu-button : 
+		//                     - if singlesite installation: options-general.php
+		//					   - if multisite  installation:
+		//                                                   on network dashboard: settings.php
+		//                                                   on subsite dashboard: options-general.php
+		$this->settingsPHP_page_dynamic = $this->static_settings['menu_pages']['first']['level']=='mainmenu' ? 'admin.php' : ( $this->plugin_needs_network_base ? 'settings.php' : 'options-general.php');
+
+		$this->plugin_page_url = $plugin_admin_baseurl . 
+			( !empty($this->static_settings['custom_opts_page']) ? $this->static_settings['custom_opts_page'] : $this->settingsPHP_page_dynamic.'?page='.$this->slug); 
+
+
 		// If plugin has options, show button (in admin menu sidebar)
 		if($this->static_settings['show_opts']===true)  //only this, because sometimes if we want to disable menu-button, then we set to "submodule" instead of true
 		{
 			if (is_multisite()){
 				if ( $this->network_wide_active )
 					add_action('network_admin_menu', [$this, 'plugin__register_handle'] );
-				if ( !$this->network_managed_is_selected ){
+				if ( !$this->network_managed_is_selected)
 					add_action('admin_menu',  [$this, 'plugin__register_handle'] );
-				}
 			}
 			else {
 				add_action('admin_menu',  [$this, 'plugin__register_handle'] );
@@ -1873,48 +1917,41 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 			});
 		}
 	}
-		//helper for above func
-		public function plugin__register_handle()
-		{
-			foreach($this->static_settings['menu_pages'] as $menuTitle=>$menuBlock){
-				$menu_button_name = $menuBlock['title'];
-				if ( $this->helpers->array_value($menuBlock, 'level') === 'mainmenu' )  // icons: https://goo.gl/WXAYCi 
-					add_menu_page($menu_button_name, $menu_button_name, $menuBlock['required_role'] , $this->slug, [$this, 'opts_page_output_parent'], $menuBlock['icon'] );
-				else 
-					add_submenu_page($this->settingsPHP_page_dynamic, $menu_button_name, $menu_button_name, $menuBlock['required_role'] , $this->slug,  [$this, 'opts_page_output_parent'] );
 
-				// if target is custom link (not options page)//add_action( 'admin_footer', function (){ <script type="text/javascript"> jQuery('a.toplevel_page_<?php echo $this->slug;').attr('href','echo esc_attr($this->opts['menu_button_link']);').attr('target','_blank'); </script> 
-			}
-		}
-	
-
-	// ================  dont use activation/deactivation hooks =====================//
-	// happens before REAL activation (activated_plugin happens after individual DB activation) 
-	public function activate($network_wide)
+	//helper for above func
+	public function plugin__register_handle()
 	{
-		// Differentiation only applies when/if MultiSite enabled. Otherwise, always master site
-		if ( is_multisite() )
-		{ 
-			if(
-				( !$this->helper_manager_page_network_is_allowed() && ( $this->is_network_admin_referrer()  || $network_wide) )
-					||
-				( !$this->helper_manager_page_subsite_is_allowed() && (!$this->is_network_admin_referrer() || !$network_wide ) )
-			)
-			{
-				$text= '<h2><code>'.$this->opts['name'].'</code>: '. $this->static_settings['menu_text']['activated_only_from']. ' <b style="color:red;">'.($this->helper_manager_page_value()).'</b></h2>';
-				//$text .=  '<script>alert("'.strip_tags($text).'");</script>';
-				//header_remove("Location"); header_remove("X-Redirect-By"); 
-				die($text);
-			}
-		}
-		//$this->plugin_updated_hook();
-		if ( method_exists($this, 'activation_funcs') ) { $this->activation_funcs($network_wide); } 
-	}
-	// commented part:  pastebin_com/KNM3iMEs
+		foreach($this->static_settings['menu_pages'] as $menuTitle=>$menuBlock){
+			$menu_button_name = $menuBlock['title'];
+			if ( $this->helpers->array_value($menuBlock, 'level') === 'mainmenu' )  // icons: https://goo.gl/WXAYCi 
+				add_menu_page($menu_button_name, $menu_button_name, $menuBlock['required_role'] , $this->slug, [$this, 'opts_page_output_parent'], $menuBlock['icon'] );
+			else 
+				add_submenu_page($this->settingsPHP_page_dynamic, $menu_button_name, $menu_button_name, $menuBlock['required_role'] , $this->slug,  [$this, 'opts_page_output_parent'] );
 
-	public function deactivate($network_wide){
-		if(method_exists($this, 'deactivation_funcs') ) {   $this->deactivation_funcs($network_wide);  }
+			// if target is custom link (not options page)//add_action( 'admin_footer', function (){ <script type="text/javascript"> jQuery('a.toplevel_page_<?php echo $this->slug;').attr('href','echo esc_attr($this->opts['menu_button_link']);').attr('target','_blank'); </script> 
+		}
 	}
+
+
+	// #################################################################### //
+	// #################################################################### //
+	// ##################    END OF MULTISITE HANDLING   ################## //
+	// #################################################################### //
+	// #################################################################### //
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 	//load translation
 	public function load_textdomain(){
@@ -1924,6 +1961,10 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	public function is_not_bulk_activation($plugin)
 	{
 		return ( $plugin == $this->static_settings['plugin_basename'] && !((new \WP_Plugins_List_Table())->current_action()=='activate-selected'));
+	}
+
+	public function deactivate($network_wide){
+		if(method_exists($this, 'deactivation_funcs') ) {   $this->deactivation_funcs($network_wide);  }
 	}
 	
 	// for some reasons, native "is_network_admin()" doesn't work during ACTIVATION hook, and we need to manually use this
@@ -2186,11 +2227,17 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	}
 	//
 	
-	public function helper_manager_page_value($menuNameId='first') { return $this->static_settings['menu_pages'][$menuNameId]['default_managed'] ; }
-	public function helper_manager_page_network_is_allowed() { return ( (is_multisite() && in_array($this->helper_manager_page_value(), ['network','both']) ) || ( !is_multisite() ) ) ; }
-	public function helper_manager_page_subsite_is_allowed() {( (is_multisite() && in_array($this->helper_manager_page_value(), ['subsite','both']) ) || ( !is_multisite() ) ) ; }
+	// this below 'default_managed' is the fixed (not-user-changeable) constant, hardcoded set for plugin architecture specially
+	public function helper_managedfrom_constant_value($menuNameId='first') { return $this->static_settings['menu_pages'][$menuNameId]['default_managed'] ; }
+	public function helper_managedfrom_constant_network_is_allowed() {
+		return ( (is_multisite() && in_array($this->helper_managedfrom_constant_value(), ['network','both']) ) || ( !is_multisite() ) );
+	}
+	public function helper_managedfrom_constant_subsite_is_allowed() {
+		return ( (is_multisite() && in_array($this->helper_managedfrom_constant_value(), ['subsite','both']) ) || ( !is_multisite() ) ) ;
+	}
+
 	public function is_network_managed(){
-		return get_site_option( $this->slug . '_network_managed', true );
+		return $this->helper_managedfrom_constant_network_is_allowed() && get_site_option( $this->slug . '_network_managed', true );
 	}
 
 	public function helper_update_managed_value($value){
