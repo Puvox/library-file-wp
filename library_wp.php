@@ -1847,9 +1847,9 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		if ( is_multisite() )
 		{  
 			if(
-				( !$this->helper_managedfrom_constant_network_is_allowed() && ( $this->is_network_admin_referrer()  || $network_wide) )
+				( !$this->helper_managedfrom_NETWORK_ALLOWED() && ( $this->is_network_admin_referrer()  || $network_wide) )
 					||
-				( !$this->helper_managedfrom_constant_subsite_is_allowed() && (!$this->is_network_admin_referrer() || !$network_wide ) )
+				( !$this->helper_managedfrom_SUBSITE_ALLOWED() && (!$this->is_network_admin_referrer() || !$network_wide ) )
 			)
 			{
 				$text= '<h2><code>'.$this->opts['name'].'</code>: '. $this->static_settings['menu_text']['activated_only_from']. ' <b style="color:red;">'.($this->helper_managedfrom_constant_value()).'</b></h2>';
@@ -1869,22 +1869,24 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		$this->plugin_needs_network_base = true;
 		if (!is_multisite()) {
 			$this->plugin_needs_network_base = false;
-		} else if (!$this->helper_managedfrom_constant_network_is_allowed() || !$this->network_wide_active) {
-			$this->plugin_needs_network_base = false;
-		} else if (!$this->network_managed_is_selected) {
+		} else if (!$this->helper_managedfrom_NETWORK_ALLOWED() || !$this->network_wide_active) {
 			$this->plugin_needs_network_base = false;
 		}
-		$plugin_admin_baseurl = $this->plugin_needs_network_base ? network_admin_url() : admin_url();
+		// the below commented, because it will disable settings page on network dashboard, even though it would need to show "switcher manager" in network's plugin settings page
+		// else if (!$this->network_managed_is_selected) {
+		//	$this->plugin_needs_network_base = false;
+		//}
 
-		// if main-menu-button: admin.php  (for multisite or singlesite installation)
-		// if sub-menu-button : 
+
+		// if primary menu-button: admin.php  (for multisite or singlesite installation)
+		// if sub     menu-button: 
 		//                     - if singlesite installation: options-general.php
 		//					   - if multisite  installation:
 		//                                                   on network dashboard: settings.php
 		//                                                   on subsite dashboard: options-general.php
-		$this->settingsPHP_page_dynamic = $this->static_settings['menu_pages']['first']['level']=='mainmenu' ? 'admin.php' : ( $this->plugin_needs_network_base ? 'settings.php' : 'options-general.php');
+		$this->settingsPHP_page_dynamic = $this->static_settings['menu_pages']['first']['level']=='mainmenu' ? 'admin.php' : ( is_network_admin() ? 'settings.php' : 'options-general.php');
 
-		$this->plugin_page_url = $plugin_admin_baseurl . 
+		$this->plugin_page_url = (is_network_admin() ? network_admin_url() : admin_url()) . 
 			( !empty($this->static_settings['custom_opts_page']) ? $this->static_settings['custom_opts_page'] : $this->settingsPHP_page_dynamic.'?page='.$this->slug); 
 
 
@@ -1892,14 +1894,9 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		if($this->static_settings['show_opts']===true)  //only this, because sometimes if we want to disable menu-button, then we set to "submodule" instead of true
 		{
 			if (is_multisite()){
-				if ( $this->network_wide_active )
-					add_action('network_admin_menu', [$this, 'plugin__register_handle'] );
-				if ( !$this->network_managed_is_selected)
-					add_action('admin_menu',  [$this, 'plugin__register_handle'] );
+				add_action('network_admin_menu', [$this, 'plugin__add_menu_or_submenu'] );
 			}
-			else {
-				add_action('admin_menu',  [$this, 'plugin__register_handle'] );
-			}		
+			add_action('admin_menu',  [$this, 'plugin__add_menu_or_submenu'] );	
 			//redirect to settings page after activation (if not bulk activation)
 			add_action('activated_plugin', function($plugin) { if ($this->is_not_bulk_activation($plugin))  { exit( wp_redirect($this->plugin_page_url.'&isactivation') ); } } );
 		}
@@ -1919,14 +1916,13 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	}
 
 	//helper for above func
-	public function plugin__register_handle()
+	public function plugin__add_menu_or_submenu()
 	{
 		foreach($this->static_settings['menu_pages'] as $menuTitle=>$menuBlock){
-			$menu_button_name = $menuBlock['title'];
 			if ( $this->helpers->array_value($menuBlock, 'level') === 'mainmenu' )  // icons: https://goo.gl/WXAYCi 
-				add_menu_page($menu_button_name, $menu_button_name, $menuBlock['required_role'] , $this->slug, [$this, 'opts_page_output_parent'], $menuBlock['icon'] );
+				add_menu_page($menuBlock['title'], $menuBlock['title'], $menuBlock['required_role'], $this->slug, [$this, 'opts_page_output_parent'], $menuBlock['icon']);
 			else 
-				add_submenu_page($this->settingsPHP_page_dynamic, $menu_button_name, $menu_button_name, $menuBlock['required_role'] , $this->slug,  [$this, 'opts_page_output_parent'] );
+				add_submenu_page($this->settingsPHP_page_dynamic, $menuBlock['title'], $menuBlock['title'], $menuBlock['required_role'], $this->slug, [$this, 'opts_page_output_parent']);
 
 			// if target is custom link (not options page)//add_action( 'admin_footer', function (){ <script type="text/javascript"> jQuery('a.toplevel_page_<?php echo $this->slug;').attr('href','echo esc_attr($this->opts['menu_button_link']);').attr('target','_blank'); </script> 
 		}
@@ -2229,16 +2225,13 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	
 	// this below 'default_managed' is the fixed (not-user-changeable) constant, hardcoded set for plugin architecture specially
 	public function helper_managedfrom_constant_value($menuNameId='first') { return $this->static_settings['menu_pages'][$menuNameId]['default_managed'] ; }
-	public function helper_managedfrom_constant_network_is_allowed() {
-		return ( (is_multisite() && in_array($this->helper_managedfrom_constant_value(), ['network','both']) ) || ( !is_multisite() ) );
-	}
-	public function helper_managedfrom_constant_subsite_is_allowed() {
-		return ( (is_multisite() && in_array($this->helper_managedfrom_constant_value(), ['subsite','both']) ) || ( !is_multisite() ) ) ;
-	}
+	public function helper_managedfrom_NETWORK_ALLOWED($menuNameId='first') { return !$this->array_value($this->static_settings['menu_pages'][$menuNameId], 'network_forbidden', false) ; }
+	public function helper_managedfrom_SUBSITE_ALLOWED($menuNameId='first') { return !$this->array_value($this->static_settings['menu_pages'][$menuNameId], 'subsite_forbidden', false) ; }
 
 	public function is_network_managed(){
-		return $this->helper_managedfrom_constant_network_is_allowed() && get_site_option( $this->slug . '_network_managed', true );
+		return  (!is_multisite() || $this->helper_managedfrom_NETWORK_ALLOWED()) && get_site_option( $this->slug . '_network_managed', true );
 	}
+
 
 	public function helper_update_managed_value($value){
 		$key = $this->slug . '_network_managed';
@@ -2539,12 +2532,23 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 			</div>
 		<?php 
 		}
-		if ( (is_network_admin() && $this->network_managed_is_selected) || (!is_network_admin() && !$this->network_managed_is_selected) ){
-			if(method_exists($this, 'opts_page_output')) 
+		if(method_exists($this, 'opts_page_output')) {
+			if (
+				!is_multisite() ||
+				(
+					( is_network_admin() &&  $this->network_managed_is_selected)
+						|| 
+					(!is_network_admin() && !$this->network_managed_is_selected)
+			    )
+			)
+			{
 				$this->opts_page_output();
-		}
-		else{
-			echo '<div style="display: flex; background: white; flex-direction: column; max-width: 600px; margin: 100px auto; border-radius: 10px; padding: 30px;"><h1>'.__('Plugin is set to be managed per: <span class="perChosen">'. ($this->network_managed_is_selected ? "Network": "Sub-sites") ).'</span></h1></div>';
+			}
+			else{
+				echo '<div style="display: flex; background: white; flex-direction: column; max-width: 600px; margin: 100px auto; border-radius: 10px; padding: 30px;"><h1>'.__('Plugin is set to be managed per: <span class="perChosen">'. ($this->network_managed_is_selected ? "Network": "Sub-sites") ).'</span></h1></div>';
+			}
+		} else {
+			echo '<div style="display: flex; background: white; flex-direction: column; max-width: 600px; margin: 100px auto; border-radius: 10px; padding: 30px;"><h1>'.__('Plugin does not have options at this moment').'</span></h1></div>';
 		}
 	}
 	
