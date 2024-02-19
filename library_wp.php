@@ -478,7 +478,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 		require_once(ABSPATH . 'wp-admin/includes/file.php');
 		\WP_Filesystem();
 		\unzip_file($path, $where);
-		$this->usleep(300000);
+		$this->sleep(300);
 	}
 	
 	public function unzip_in_dir($dir, $rewrite=true)
@@ -496,7 +496,7 @@ if (!class_exists('\\Puvox\\library_wp')) {
 				if( !array_key_exists($uniqueTag, $this->temp_unziped_folders) || $this->temp_unziped_folders[$uniqueTag]==false )
 				{
 					$this->file->delete_directory($each_dir);
-					$this->usleep(500000);
+					$this->sleep(500);
 					//$this->create_directory($pathh);
 				}
 			}
@@ -1704,9 +1704,10 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 
 		$this->notes_enabled	= false;
 		$this->check_if_pro_plugin();
-		$this->__construct_my();		// All other custom construction hooks 
-
 		$this->plugin_multi_single_site_page_select();
+		if ($this->network_wide_active || !is_multisite() || (!$this->helper_managedfrom_constant_value_is_network() || is_network_admin())){
+			$this->__construct_my();		// All other custom construction hooks 
+		}
 
 		$this->plugin_files		= array_merge( (property_exists($this, 'plugin_files') ? $this->plugin_files : [] ),   ['index.php'] );
 		$this->translation_phrases= $this->get_phrases();
@@ -1843,21 +1844,26 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	// happens before REAL activation (activated_plugin happens after individual DB activation) 
 	public function activate($network_wide)
 	{
-		// below check only happens when multisite installation, to check if the activation happens on intended NETWORK or SUBSITE mode
-		if ( is_multisite() )
-		{  
-			if(
-				( !$this->helper_managedfrom_NETWORK_ALLOWED() && ( $this->is_network_admin_referrer()  || $network_wide) )
-					||
-				( !$this->helper_managedfrom_SUBSITE_ALLOWED() && (!$this->is_network_admin_referrer() || !$network_wide ) )
-			)
-			{
-				$text= '<h2><code>'.$this->opts['name'].'</code>: '. $this->static_settings['menu_text']['activated_only_from']. ' <b style="color:red;">'.($this->helper_managedfrom_constant_value()).'</b></h2>';
-				//$text .=  '<script>alert("'.strip_tags($text).'");</script>';
-				//header_remove("Location"); header_remove("X-Redirect-By"); 
-				die($text);
-			}
-		}
+		// the below was commented, because wordpress no longer shows the message during activation.
+
+		//below check only happens when multisite installation, to check if the activation happens on intended NETWORK or SUBSITE mode
+		// if ( is_multisite() )
+		// {  
+		// 	$activate_from_network = ($this->is_network_admin_referrer() || $network_wide);
+		// 	if(
+		// 		( $activate_from_network  && !$this->helper_managedfrom_NETWORK_ALLOWED())
+		// 			||
+		// 		( !$activate_from_network && (!$this->helper_managedfrom_SUBSITE_ALLOWED() || $this->helper_managedfrom_constant_value_is_network()))
+		// 	)
+		// 	{
+		// 		$text= '<h2><code>'.$this->opts['name'].'</code>: '. $this->static_settings['menu_text']['activated_only_from']. ' <b style="color:red;">'.($this->helper_managedfrom_constant_value()).'</b></h2>';
+		// 		//$text .=  '<script>alert("'.strip_tags($text).'");</script>';
+		// 		//header_remove("Location"); header_remove("X-Redirect-By"); 
+		// 		die($text);
+		// 	}
+		// }
+		
+		
 		//$this->plugin_updated_hook();
 		if ( method_exists($this, 'activation_funcs') ) { $this->activation_funcs($network_wide); } 
 	}
@@ -1922,7 +1928,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 			if ( $this->helpers->array_value($menuBlock, 'level') === 'mainmenu' )  // icons: https://goo.gl/WXAYCi 
 				add_menu_page($menuBlock['title'], $menuBlock['title'], $menuBlock['required_role'], $this->slug, [$this, 'opts_page_output_parent'], $menuBlock['icon']);
 			else 
-				add_submenu_page($this->settingsPHP_page_dynamic, $menuBlock['title'], $menuBlock['title'], $menuBlock['required_role'], $this->slug, [$this, 'opts_page_output_parent']);
+				add_submenu_page($this->settingsPHP_page_dynamic, $menuBlock['title'], '● '. $menuBlock['title'], $menuBlock['required_role'], $this->slug, [$this, 'opts_page_output_parent']);
 
 			// if target is custom link (not options page)//add_action( 'admin_footer', function (){ <script type="text/javascript"> jQuery('a.toplevel_page_<?php echo $this->slug;').attr('href','echo esc_attr($this->opts['menu_button_link']);').attr('target','_blank'); </script> 
 		}
@@ -2225,6 +2231,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 	
 	// this below 'default_managed' is the fixed (not-user-changeable) constant, hardcoded set for plugin architecture specially
 	public function helper_managedfrom_constant_value($menuNameId='first') { return $this->static_settings['menu_pages'][$menuNameId]['default_managed'] ; }
+	public function helper_managedfrom_constant_value_is_network($menuNameId='first') { return $this->helper_managedfrom_constant_value() === 'network'; }
 	public function helper_managedfrom_NETWORK_ALLOWED($menuNameId='first') { return !$this->array_value($this->static_settings['menu_pages'][$menuNameId], 'network_forbidden', false) ; }
 	public function helper_managedfrom_SUBSITE_ALLOWED($menuNameId='first') { return !$this->array_value($this->static_settings['menu_pages'][$menuNameId], 'subsite_forbidden', false) ; }
 
@@ -2533,16 +2540,19 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 		<?php 
 		}
 		if(method_exists($this, 'opts_page_output')) {
-			if (
-				!is_multisite() ||
-				(
-					( is_network_admin() &&  $this->network_managed_is_selected)
-						|| 
-					(!is_network_admin() && !$this->network_managed_is_selected)
-			    )
+			if (!is_multisite()) {
+				$this->opts_page_output();  
+			} else if (
+				( is_network_admin() &&  $this->network_managed_is_selected)
+					|| 
+				(!is_network_admin() && !$this->network_managed_is_selected)
 			)
 			{
-				$this->opts_page_output();
+				if ($this->network_wide_active || !$this->helper_managedfrom_constant_value_is_network()) {
+					$this->opts_page_output();  
+				} else {
+					echo '<div style="display: flex; background: white; flex-direction: column; max-width: 600px; margin: 100px auto; border-radius: 10px; padding: 30px;"><h1>'.__('This Plugin needs to be activated from network').'</span></h1></div>';
+				}
 			}
 			else{
 				echo '<div style="display: flex; background: white; flex-direction: column; max-width: 600px; margin: 100px auto; border-radius: 10px; padding: 30px;"><h1>'.__('Plugin is set to be managed per: <span class="perChosen">'. ($this->network_managed_is_selected ? "Network": "Sub-sites") ).'</span></h1></div>';
