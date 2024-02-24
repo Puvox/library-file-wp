@@ -22,6 +22,7 @@ namespace Puvox;
 
 
 if (!class_exists('\\Puvox\\library_wp')) {
+  #[\AllowDynamicProperties]
   class library_wp extends library
   {
 	  
@@ -1661,6 +1662,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 //============================= Main base for WP plugin ============================
 //==================================================================================
 
+  #[\AllowDynamicProperties]
   class wp_plugin
   {
 
