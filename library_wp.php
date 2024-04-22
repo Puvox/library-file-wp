@@ -1930,7 +1930,7 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 			if ( $this->helpers->array_value($menuBlock, 'level') === 'mainmenu' )  // icons: https://goo.gl/WXAYCi 
 				add_menu_page($menuBlock['title'], $menuBlock['title'], $menuBlock['required_role'], $this->slug, [$this, 'opts_page_output_parent'], $menuBlock['icon']);
 			else 
-				add_submenu_page($this->settingsPHP_page_dynamic, $menuBlock['title'], '● '. $menuBlock['title'], $menuBlock['required_role'], $this->slug, [$this, 'opts_page_output_parent']);
+				add_submenu_page($this->settingsPHP_page_dynamic, $menuBlock['title'], '🟠 '. $menuBlock['title'], $menuBlock['required_role'], $this->slug, [$this, 'opts_page_output_parent']); // ⭕📍🔶
 
 			// if target is custom link (not options page)//add_action( 'admin_footer', function (){ <script type="text/javascript"> jQuery('a.toplevel_page_<?php echo $this->slug;').attr('href','echo esc_attr($this->opts['menu_button_link']);').attr('target','_blank'); </script> 
 		}
@@ -1964,7 +1964,13 @@ if (! class_exists('\\Puvox\\wp_plugin')) {
 
 	public function is_not_bulk_activation($plugin)
 	{
-		return ( $plugin == $this->static_settings['plugin_basename'] && !((new \WP_Plugins_List_Table())->current_action()=='activate-selected'));
+		try {
+			// avoid error from wp-cli:  PHP Fatal error:  Uncaught Error: Class "WP_Plugins_List_Table" not found in wp-phpmyadmin-extension/library_wp.php:...
+			return ( $plugin == $this->static_settings['plugin_basename'] && !((new \WP_Plugins_List_Table())->current_action()=='activate-selected'));
+		}
+		catch (\Throwable $ex) {
+			return true;
+		}
 	}
 
 	public function deactivate($network_wide){
